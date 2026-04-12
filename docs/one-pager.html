@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task-Relay — Architecture One-Pager</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --text: #e4e4ef;
+    --text-dim: #8888a0;
+    --accent: #6c5ce7;
+    --accent2: #a29bfe;
+    --green: #00b894;
+    --green-dim: #00b89433;
+    --orange: #fdcb6e;
+    --red: #ff6b6b;
+    --blue: #74b9ff;
+    --cyan: #81ecec;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 40px 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    position: relative;
+  }
+
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .header h1 {
+    font-size: 2.4em;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--accent2), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 1.1em;
+    font-weight: 400;
+  }
+
+  .header .tags {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .header .tag {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.75em;
+    color: var(--accent2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .tag.green { color: var(--green); border-color: #00b89444; }
+  .tag.orange { color: var(--orange); border-color: #fdcb6e44; }
+
+  h2 {
+    font-size: 1.4em;
+    font-weight: 700;
+    margin: 48px 0 20px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  h2 .icon { font-size: 1.1em; }
+
+  h2:first-of-type { margin-top: 32px; }
+
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 0.9em;
+    margin: -12px 0 20px;
+    padding-left: 32px;
+  }
+
+  /* Architecture Diagram */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    margin: 24px 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arch-diagram::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--cyan), var(--green));
+  }
+
+  .arch-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+
+  .arch-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 22px;
+    text-align: center;
+    min-width: 150px;
+    position: relative;
+  }
+
+  .arch-box.highlight {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px #6c5ce722;
+    background: linear-gradient(135deg, #6c5ce711, #1a1a26);
+  }
+
+  .arch-box .label {
+    font-weight: 700;
+    font-size: 0.95em;
+    margin-bottom: 4px;
+  }
+
+  .arch-box .detail {
+    font-size: 0.72em;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.5;
+  }
+
+  .arch-arrow {
+    color: var(--accent2);
+    font-size: 1.6em;
+    padding: 0 6px;
+    opacity: 0.7;
+  }
+
+  .arch-arrow-label {
+    font-size: 0.65em;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: -6px;
+    margin-bottom: 8px;
+  }
+
+  /* Sub-arch: executor detail */
+  .executor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0 0;
+  }
+
+  .executor-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+  }
+
+  .executor-card .ec-title {
+    font-weight: 700;
+    font-size: 0.85em;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .executor-card .ec-body {
+    font-size: 0.75em;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.6;
+  }
+
+  /* Comparison cards */
+  .compare-grid {
+    display: grid;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .compare-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: start;
+    position: relative;
+  }
+
+  .compare-card.recommended {
+    border-color: var(--green);
+    box-shadow: 0 0 20px #00b89415;
+  }
+
+  .compare-card.recommended::before {
+    content: '✓ RECOMMENDED';
+    position: absolute;
+    top: -1px;
+    right: 16px;
+    background: var(--green);
+    color: var(--bg);
+    font-size: 0.65em;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 0 0 6px 6px;
+  }
+
+  .compare-icon {
+    font-size: 1.8em;
+    width: 48px;
+    text-align: center;
+    padding-top: 2px;
+  }
+
+  .compare-body h3 {
+    font-size: 1em;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .compare-body p {
+    font-size: 0.85em;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .compare-body .why {
+    margin-top: 6px;
+    color: var(--green) !important;
+    font-weight: 500;
+  }
+
+  .compare-verdict {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75em;
+    padding: 6px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  .verdict-yes { background: var(--green-dim); color: var(--green); }
+  .verdict-later { background: #fdcb6e22; color: var(--orange); }
+  .verdict-no { background: #ff6b6b22; color: var(--red); }
+
+  /* Decision grid */
+  .decision-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .decision-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+
+  .decision-card .q {
+    font-size: 0.8em;
+    color: var(--accent2);
+    font-weight: 600;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .decision-card .a {
+    font-size: 0.95em;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .decision-card .why {
+    font-size: 0.8em;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* Tech stack */
+  .tech-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+
+  .tech-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tech-chip .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Task flow */
+  .flow-steps {
+    display: flex;
+    gap: 0;
+    margin: 20px 0;
+    align-items: stretch;
+    overflow-x: auto;
+  }
+
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    min-width: 130px;
+    flex: 1;
+    text-align: center;
+  }
+
+  .flow-step .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .flow-step .title {
+    font-weight: 700;
+    font-size: 0.85em;
+    margin-bottom: 4px;
+  }
+
+  .flow-step .desc {
+    font-size: 0.72em;
+    color: var(--text-dim);
+  }
+
+  .flow-connector {
+    display: flex;
+    align-items: center;
+    color: var(--accent);
+    font-size: 1.2em;
+    padding: 0 4px;
+    opacity: 0.5;
+  }
+
+  /* Isolation comparison */
+  .isolation-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .isolation-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+
+  .isolation-card.default {
+    border-color: var(--green);
+    box-shadow: 0 0 20px #00b89412;
+  }
+
+  .isolation-card .iso-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .isolation-card .iso-header h3 {
+    font-size: 1em;
+    font-weight: 700;
+  }
+
+  .isolation-card .iso-badge {
+    font-size: 0.65em;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--green-dim);
+    color: var(--green);
+  }
+
+  .isolation-card .iso-badge.host {
+    background: #74b9ff22;
+    color: var(--blue);
+  }
+
+  .isolation-card ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .isolation-card li {
+    font-size: 0.82em;
+    color: var(--text-dim);
+    padding: 4px 0;
+    padding-left: 18px;
+    position: relative;
+  }
+
+  .isolation-card li::before {
+    position: absolute;
+    left: 0;
+    color: var(--text-dim);
+  }
+
+  .isolation-card li.check::before { content: '✓'; color: var(--green); }
+  .isolation-card li.warn::before { content: '⚠'; color: var(--orange); }
+
+  /* Timeline */
+  .timeline {
+    margin: 20px 0;
+  }
+
+  .timeline-phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 10px 0;
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 16px;
+  }
+
+  .timeline-phase .phase-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 1.8em;
+    color: var(--accent);
+    line-height: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  .timeline-phase .phase-body h3 {
+    font-size: 0.95em;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .timeline-phase .phase-body p {
+    font-size: 0.8em;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .timeline-phase .phase-body .deliverables {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .timeline-phase .phase-body .deliverables span {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 0.7em;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent2);
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.8em;
+  }
+
+  @media (max-width: 700px) {
+    .decision-grid { grid-template-columns: 1fr; }
+    .isolation-grid { grid-template-columns: 1fr; }
+    .executor-grid { grid-template-columns: 1fr; }
+    .compare-card { grid-template-columns: auto 1fr; }
+    .compare-verdict { display: none; }
+    .flow-steps { flex-direction: column; }
+    .flow-connector { transform: rotate(90deg); justify-content: center; padding: 4px 0; }
+    .timeline-phase { grid-template-columns: 1fr; }
+    .timeline-phase .phase-num { font-size: 1.2em; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ Task-Relay</h1>
+  <div class="subtitle">Local execution daemon for remote agents</div>
+  <div class="tags">
+    <span class="tag">TypeScript</span>
+    <span class="tag">Tailscale</span>
+    <span class="tag green">REST + MCP</span>
+    <span class="tag orange">BSL 1.1</span>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<h2><span class="icon">🏗</span> Architecture</h2>
+
+<div class="arch-diagram">
+  <div class="arch-row">
+    <div class="arch-box">
+      <div class="label">🖥 Remote Agents</div>
+      <div class="detail">Claude · Codex · Gemini<br>Custom agents · Scripts</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-box">
+      <div class="label">🔒 Tailscale</div>
+      <div class="detail">Encrypted mesh<br>ACL-level access control</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-box highlight">
+      <div class="label">⚡ Task-Relay</div>
+      <div class="detail">HTTP daemon · :8080<br>REST API + MCP server<br>API key auth</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-box">
+      <div class="label">⚙ Executors</div>
+      <div class="detail">Claude Code · Codex CLI<br>Shell · (Browserbase v1.1)</div>
+    </div>
+  </div>
+  <div class="arch-arrow-label">All traffic over Tailscale — zero public exposure</div>
+
+  <div class="executor-grid">
+    <div class="executor-card">
+      <div class="ec-title">🐳 Docker Mode <span style="font-size:0.7em;color:var(--green);font-weight:500;">default</span></div>
+      <div class="ec-body">
+        Container per task · mounted workspace<br>
+        No host filesystem access · network: none<br>
+        ~2-3s cold start · safe for untrusted agents<br>
+        <em>codex exec -s workspace-write</em><br>
+        <em>claude -p (in container)</em>
+      </div>
+    </div>
+    <div class="executor-card">
+      <div class="ec-title">🖥 Host Mode <span style="font-size:0.7em;color:var(--blue);font-weight:500;">opt-in</span></div>
+      <div class="ec-body">
+        Subprocess directly on machine<br>
+        Full trust needed · zero overhead<br>
+        For your own agents on your own machine<br>
+        <em>codex exec --full-auto</em><br>
+        <em>claude -p --dangerously-skip-permissions</em>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TASK FLOW -->
+<h2><span class="icon">🔄</span> Task Lifecycle</h2>
+
+<div class="flow-steps">
+  <div class="flow-step">
+    <div class="num">01</div>
+    <div class="title">Submit</div>
+    <div class="desc">POST /tasks<br>type + payload + auth</div>
+  </div>
+  <div class="flow-connector">→</div>
+  <div class="flow-step">
+    <div class="num">02</div>
+    <div class="title">Validate</div>
+    <div class="desc">Auth · capability check<br>queue (max 1 concurrent)</div>
+  </div>
+  <div class="flow-connector">→</div>
+  <div class="flow-step">
+    <div class="num">03</div>
+    <div class="title">Execute</div>
+    <div class="desc">Docker container<br>or host subprocess</div>
+  </div>
+  <div class="flow-connector">→</div>
+  <div class="flow-step">
+    <div class="num">04</div>
+    <div class="title">Stream</div>
+    <div class="desc">SSE live logs<br>NDJSON/JSONL events</div>
+  </div>
+  <div class="flow-connector">→</div>
+  <div class="flow-step">
+    <div class="num">05</div>
+    <div class="title">Result</div>
+    <div class="desc">JSON output + artifacts<br>exit code + duration</div>
+  </div>
+</div>
+
+<!-- KEY DECISIONS — ALL RESOLVED -->
+<h2><span class="icon">✅</span> Decisions — All Resolved</h2>
+
+<div class="decision-grid">
+  <div class="decision-card">
+    <div class="q">Who is v1 for?</div>
+    <div class="a">Solo user, own machines</div>
+    <div class="why">Philip's MacBook Pro on Tailscale. Making it available to his agent fleet. No multi-tenant complexity.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">Network</div>
+    <div class="a">Tailscale only, locked down</div>
+    <div class="why">All machines already on Tailscale. No public endpoints, no NAT traversal. Tailscale ACLs for access control layer.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">Language</div>
+    <div class="a">TypeScript / Node.js</div>
+    <div class="why">Best ecosystem for agent tooling. Native integration with Claude Code & Codex CLIs. npm distribution.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">Task intake</div>
+    <div class="a">REST API + MCP Server</div>
+    <div class="why">REST is the core transport. MCP server is a thin adapter for native agent tool discovery. Best of both worlds.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">Isolation</div>
+    <div class="a">Docker (default) + Host (opt-in)</div>
+    <div class="why">Docker for safe defaults. Host mode for trusted agents on own machine. Configurable per-task.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">Concurrency</div>
+    <div class="a">1 concurrent agent task</div>
+    <div class="why">Start simple. Avoid premature optimization. Queue handles overflow. Can increase later.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">Browser automation</div>
+    <div class="a">Browserbase + Firecrawl (v1.1)</div>
+    <div class="why">Zero local risk for non-clean machines. Playwright as last resort in v2. Skip in v1.0 to ship faster.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">License</div>
+    <div class="a">BSL 1.1 (3-year change)</div>
+    <div class="why">Individuals: full freedom. SaaS/commercial: needs license. Converts to Apache 2.0 after 3 years. Same model as MariaDB, Sentry.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">Auth</div>
+    <div class="a">API key over Tailscale</div>
+    <div class="why">Tailscale = network auth. API key = app auth. Simple, honest, documented trust boundaries.</div>
+  </div>
+  <div class="decision-card">
+    <div class="q">Coordination</div>
+    <div class="a">Linear plugin (v1.1)</div>
+    <div class="why">Core is task-in → result-out. Linear is a plugin: creates tickets, updates on completion. Zero core changes needed via webhook/callback hooks.</div>
+  </div>
+</div>
+
+<!-- ISOLATION DETAIL -->
+<h2><span class="icon">🔐</span> Isolation Model</h2>
+<p class="section-desc">Docker by default, host mode for trusted agents. Configurable per-task.</p>
+
+<div class="isolation-grid">
+  <div class="isolation-card default">
+    <div class="iso-header">
+      <h3>🐳 Docker Mode</h3>
+      <span class="iso-badge">DEFAULT</span>
+    </div>
+    <ul>
+      <li class="check">Container per task, mounted workspace only</li>
+      <li class="check">No host filesystem access</li>
+      <li class="check">network: none by default (no outbound)</li>
+      <li class="check">~2-3s cold start (negligible vs LLM call time)</li>
+      <li class="check">Safe for third-party / untrusted agents</li>
+      <li class="warn">Requires Docker installed on host</li>
+      <li class="warn">Slight overhead on resource-constrained machines</li>
+    </ul>
+  </div>
+  <div class="isolation-card">
+    <div class="iso-header">
+      <h3>🖥 Host Mode</h3>
+      <span class="iso-badge host">OPT-IN</span>
+    </div>
+    <ul>
+      <li class="check">Zero overhead — subprocess directly on machine</li>
+      <li class="check">Full access to local tools, env, filesystem</li>
+      <li class="check">Best experience for your own agents</li>
+      <li class="check">No Docker dependency</li>
+      <li class="warn">Agent can read/write anything user can</li>
+      <li class="warn">Only use with agents you fully trust</li>
+      <li class="warn">Codex -s workspace-write adds partial sandbox</li>
+    </ul>
+  </div>
+</div>
+
+<!-- TASK INTAKE -->
+<h2><span class="icon">📡</span> Task Intake Protocol</h2>
+
+<div class="compare-grid">
+  <div class="compare-card recommended">
+    <div class="compare-icon">🔌</div>
+    <div class="compare-body">
+      <h3>REST API + MCP Server (both)</h3>
+      <p><strong>REST as core</strong> — POST /tasks, GET /tasks/:id, SSE for streaming. Any HTTP client works. <strong>MCP as adapter</strong> — JSON-RPC over stdio, maps 1:1 to REST. Agents get native tool discovery.</p>
+      <p class="why">MCP is low-cost to add and gets you agent-native integration with almost zero extra work.</p>
+    </div>
+    <div class="compare-verdict verdict-yes">v1 ✓</div>
+  </div>
+  <div class="compare-card">
+    <div class="compare-icon">📬</div>
+    <div class="compare-body">
+      <h3>REST only</h3>
+      <p>Simplest possible. Works everywhere. But agents have to know the API shape — no discovery.</p>
+    </div>
+    <div class="compare-verdict verdict-later">subset ✓</div>
+  </div>
+  <div class="compare-card">
+    <div class="compare-icon">🔗</div>
+    <div class="compare-body">
+      <h3>MCP only</h3>
+      <p>Great for Claude/Cursor but stdio-based — doesn't work over network. Need REST bridge anyway.</p>
+    </div>
+    <div class="compare-verdict verdict-no">insufficient</div>
+  </div>
+</div>
+
+<!-- BROWSER OPTIONS -->
+<h2><span class="icon">🌐</span> Browser Automation</h2>
+
+<div class="compare-grid">
+  <div class="compare-card recommended">
+    <div class="compare-icon">☁️</div>
+    <div class="compare-body">
+      <h3>Browserbase + Firecrawl</h3>
+      <p>Cloud browser sessions. Nothing runs locally. Safe for non-clean machines. Pay-per-use.</p>
+      <p class="why">Best v1 fit: zero local risk, good APIs, low integration effort.</p>
+    </div>
+    <div class="compare-verdict verdict-yes">v1.1</div>
+  </div>
+  <div class="compare-card">
+    <div class="compare-icon">🎭</div>
+    <div class="compare-body">
+      <h3>Playwright / Puppeteer</h3>
+      <p>Full local browser control. Powerful but risky: can access sessions, cookies, screenshots expose desktop.</p>
+    </div>
+    <div class="compare-verdict verdict-later">v2 — last resort</div>
+  </div>
+  <div class="compare-card">
+    <div class="compare-icon">🖱</div>
+    <div class="compare-body">
+      <h3>Computer Use (Claude native)</h3>
+      <p>Controls your actual desktop. Maximum risk. Hard no for non-clean machines.</p>
+    </div>
+    <div class="compare-verdict verdict-no">hard no</div>
+  </div>
+</div>
+
+<!-- TECH STACK -->
+<h2><span class="icon">🛠</span> Tech Stack</h2>
+
+<div class="tech-row">
+  <div class="tech-chip"><span class="dot" style="background:var(--green)"></span>TypeScript</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--green)"></span>Node.js</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--blue)"></span>Hono (HTTP)</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--blue)"></span>Better-SQLite3</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--cyan)"></span>@modelcontextprotocol/sdk</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--orange)"></span>Docker (optional)</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--accent)"></span>Tailscale</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--accent)"></span>pnpm</div>
+</div>
+
+<!-- CLI INTEGRATION -->
+<h2><span class="icon">🤖</span> Agent CLI Integration</h2>
+<p class="section-desc">Based on <a href="https://github.com/philipbankier/agent-cli-skills" style="color:var(--accent2)">agent-cli-skills</a> research — flags verified against latest CLI versions.</p>
+
+<div class="arch-diagram">
+  <div class="executor-grid">
+    <div class="executor-card">
+      <div class="ec-title">🟠 Claude Code <span style="font-size:0.7em;color:var(--text-dim);font-weight:400;">v2.1.81</span></div>
+      <div class="ec-body">
+        claude -p "prompt" \<br>
+        &nbsp;&nbsp;--output-format stream-json \<br>
+        &nbsp;&nbsp;--dangerously-skip-permissions \<br>
+        &nbsp;&nbsp;--max-budget-usd 1.00<br><br>
+        NDJSON streaming · JSON schema output<br>
+        --allowedTools for tool whitelisting<br>
+        No native sandbox → Docker mode critical
+      </div>
+    </div>
+    <div class="executor-card">
+      <div class="ec-title">🟢 Codex CLI <span style="font-size:0.7em;color:var(--text-dim);font-weight:400;">v0.114.0</span></div>
+      <div class="ec-body">
+        codex exec "prompt" \<br>
+        &nbsp;&nbsp;--full-auto --json<br><br>
+        JSONL event stream · Session resume<br>
+        Built-in sandboxes: -s read-only / workspace-write<br>
+        AGENTS.md cross-tool config (Copilot, Cursor)<br>
+        -o output.txt for file capture
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMPLEMENTATION PLAN -->
+<h2><span class="icon">📋</span> Implementation Plan</h2>
+
+<div class="timeline">
+  <div class="timeline-phase">
+    <div class="phase-num">01</div>
+    <div class="phase-body">
+      <h3>Core Daemon + REST API</h3>
+      <p>HTTP server, task model, SQLite persistence, API key auth, basic shell executor (host mode). Health check + status endpoints.</p>
+      <div class="deliverables">
+        <span>POST /tasks</span>
+        <span>GET /tasks/:id</span>
+        <span>GET /tasks</span>
+        <span>SSE /tasks/:id/stream</span>
+        <span>SQLite schema</span>
+        <span>CLI: npx task-relay start</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline-phase">
+    <div class="phase-num">02</div>
+    <div class="phase-body">
+      <h3>Agent Executors</h3>
+      <p>Claude Code executor (claude -p, stream-json parsing). Codex executor (codex exec, JSONL parsing). Concurrency queue (max 1). Budget/timeout enforcement.</p>
+      <div class="deliverables">
+        <span>claude-code executor</span>
+        <span>codex executor</span>
+        <span>executor registry</span>
+        <span>concurrency queue</span>
+        <span>budget limits</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline-phase">
+    <div class="phase-num">03</div>
+    <div class="phase-body">
+      <h3>Docker Isolation</h3>
+      <p>Container-per-task executor backend. Dockerfile for executor image. Volume mounting, network isolation, resource limits. Per-task isolation mode config.</p>
+      <div class="deliverables">
+        <span>Dockerfile</span>
+        <span>docker executor backend</span>
+        <span>isolation config</span>
+        <span>image build script</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline-phase">
+    <div class="phase-num">04</div>
+    <div class="phase-body">
+      <h3>MCP Server</h3>
+      <p>Model Context Protocol adapter over stdio. Maps MCP tool calls to REST API. Tool discovery for Claude/Cursor/etc. Capability advertising.</p>
+      <div class="deliverables">
+        <span>MCP server</span>
+        <span>tool definitions</span>
+        <span>capability discovery</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline-phase">
+    <div class="phase-num">05</div>
+    <div class="phase-body">
+      <h3>Polish + Docs + Ship</h3>
+      <p>Configuration file (~/.task-relay/config.yaml). Logging/observability. README + docs. npm package. GitHub Actions CI. BSL 1.1 license.</p>
+      <div class="deliverables">
+        <span>config system</span>
+        <span>structured logging</span>
+        <span>README + examples</span>
+        <span>npm publish</span>
+        <span>CI/CD</span>
+        <span>LICENSE</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RISKS -->
+<h2><span class="icon">⚠️</span> Risks</h2>
+
+<div class="compare-grid">
+  <div class="compare-card" style="grid-template-columns: 48px 1fr;">
+    <div class="compare-icon" style="color:var(--red)">!</div>
+    <div class="compare-body">
+      <h3>RCE is the product</h3>
+      <p>This tool literally executes remote commands. V1 must be honest about what it protects against (Tailscale + API key + Docker) and what it doesn't.</p>
+    </div>
+  </div>
+  <div class="compare-card" style="grid-template-columns: 48px 1fr;">
+    <div class="compare-icon" style="color:var(--orange)">!</div>
+    <div class="compare-body">
+      <h3>Agent CLI quirks</h3>
+      <p>Claude Code and Codex have different interfaces, streaming formats, and gotchas (e.g., nested claude -p produces empty output). Per-tool adapters needed.</p>
+    </div>
+  </div>
+  <div class="compare-card" style="grid-template-columns: 48px 1fr;">
+    <div class="compare-icon" style="color:var(--orange)">!</div>
+    <div class="compare-body">
+      <h3>Scope creep</h3>
+      <p>"Agent fleet" thinking → scheduling, service discovery, load balancing. Not v1. Stay focused: one daemon, one machine, task in → result out.</p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Task-Relay · Planning Complete · April 2026<br>
+  <span style="color:var(--text-dim)">Status: All decisions resolved · Ready for implementation</span>
+</div>
+
+</body>
+</html>

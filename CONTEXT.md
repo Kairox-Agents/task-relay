@@ -1,53 +1,75 @@
-# GroundCrew — Project Context
+# Task-Relay — Project Context
 
-**Last Updated:** 2026-04-11
+**Last Updated:** 2026-04-12
 **Telegram Topic ID:** 232
-**Folder:** `projects/groundcrew/`
+**Folder:** `projects/task-relay/`
+
+## What It Is
+
+A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's machine and lets remote agents submit tasks for local execution. Think: turning Claude Code / Codex CLI into callable endpoints over Tailscale.
 
 ## Current State
 
-Project just created. Starting dual-brain planning pipeline for the local worker service.
+**Phase: Planning complete, awaiting implementation approval.**
 
-## What This Is
+All architecture decisions resolved. One-pager updated with full details.
 
-A lightweight local worker daemon that:
-- Runs on a user's machine
-- Accepts task submissions from remote agents/humans/services
-- Executes: browser automation, CLI/coding tasks, filesystem ops, delegated execution
-- Think: callable local execution node for an agent fleet
+## Key Decisions (All Resolved)
 
-## Constraints / Preferences
+| Decision | Choice | Rationale |
+|---|---|---|
+| Target user | Solo user, own machines | Philip's MacBook Pro on Tailscale |
+| Network | Tailscale only | All machines on Tailscale, ACLs for access control |
+| Language | TypeScript / Node.js | Best agent tooling ecosystem, npm distribution |
+| Task intake | REST API + MCP Server | REST = core transport, MCP = thin adapter for agent discovery |
+| Isolation | Docker (default) + Host (opt-in) | Docker for safe defaults, host for trusted agents |
+| Concurrency | 1 concurrent agent task | Start simple, increase later |
+| Browser | Browserbase + Firecrawl (v1.1) | Zero local risk, Playwright last resort v2 |
+| Auth | API key over Tailscale | Tailscale = network, API key = app |
+| License | BSL 1.1 (3-year change) | Individuals free, SaaS needs license, → Apache 2.0 |
+| Coordination | Linear plugin (v1.1) | Core is task-in→result-out, Linear is plugin via webhooks |
+| Package name | task-relay | npm: `npx task-relay start` |
+| DB | Better-SQLite3 | Embedded, zero deps, good for task state |
 
-- Local-first, small, practical, hackable v1
-- Easy to run on laptop/workstation
-- Usable by both humans and agents
-- Good logs/observability
-- No over-engineering, no fake security claims
-- No big hosted backend in v1
+## Architecture
 
-## Planning Pipeline Status
+```
+Agent → Tailscale → Task-Relay (HTTP daemon :8080)
+                        ├── REST API (submit/status/stream)
+                        ├── MCP Server (agent discovery)
+                        ├── Executor: Docker mode (default)
+                        │     ├── Claude Code (claude -p --output-format stream-json)
+                        │     └── Codex CLI (codex exec --full-auto --json)
+                        ├── Executor: Host mode (opt-in, subprocess)
+                        ├── Shell executor
+                        └── Plugin hooks (Linear v1.1)
+```
 
-- [ ] Step 1: Brainstorm (Claude)
-- [ ] Step 2: Codex critique
-- [ ] Step 3: Plan (Claude)
-- [ ] Step 4: Codex sanity check
-- [ ] Step 5: Route to executor
+## CLI Integration (from agent-cli-skills research)
 
-## Open Questions (from brief)
+- **Claude Code v2.1.81:** `claude -p "prompt" --output-format stream-json --dangerously-skip-permissions --max-budget-usd 1.00`
+  - NDJSON streaming, JSON schema output, tool whitelisting
+  - No native sandbox → Docker mode important
+- **Codex CLI v0.114.0:** `codex exec "prompt" --full-auto --json`
+  - JSONL event stream, session resume, built-in sandboxes
+  - AGENTS.md cross-tool config
 
-- Preferred implementation language?
-- Target OSes?
-- Is browser automation MVP-critical?
-- Is coding-agent integration MVP-critical?
-- LAN-only or internet-facing remote access?
-- Central coordination in v1 or not?
-- Preferred license?
-- Security/threat-model bar?
+## Implementation Plan (5 phases)
 
-## Key Decisions
+1. **Core Daemon + REST API** — HTTP server, task model, SQLite, auth, shell executor
+2. **Agent Executors** — Claude Code + Codex executors, concurrency queue, budget limits
+3. **Docker Isolation** — Container-per-task, Dockerfile, volume mounting, network isolation
+4. **MCP Server** — MCP adapter over stdio, tool definitions, capability discovery
+5. **Polish + Docs + Ship** — Config, logging, README, npm publish, CI, BSL 1.1 license
 
-_None yet._
+## Files
 
-## Recent Progress
+- `docs/brief.md` — Original project brief
+- `docs/one-pager.html` — Visual architecture one-pager (published as GitHub gist)
+- `README.md` — Project overview
 
-- 2026-04-11: Project scaffolded as "GroundCrew" by mistake, renamed to Task-Relay
+## Key References
+
+- [agent-cli-skills](https://github.com/philipbankier/agent-cli-skills) — CLI comparison matrix, automation patterns
+- [MCP SDK](https://github.com/anthropics/model-context-protocol) — For MCP server implementation
+- [Hono](https://github.com/honojs/hono) — HTTP framework
