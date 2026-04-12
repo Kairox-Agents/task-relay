@@ -217,8 +217,7 @@ Response (200):
   "version": "0.1.0",
   "executors": {
     "shell": { "available": true },
-    "claude-code": { "available": true, "version": "2.1.81" },
-    "codex": { "available": true, "version": "0.114.0" }
+    "claude-code": { "available": true, "version": "2.1.81" }
   },
   "queue": { "running": 0, "queued": 0, "max_concurrent": 1 }
 }
@@ -228,7 +227,7 @@ Response (200):
 Response (200):
 ```json
 {
-  "task_types": ["shell", "claude-code", "codex"],
+  "task_types": ["shell", "claude-code"],
   "isolation_modes": ["docker", "host"],
   "default_isolation": "docker",
   "allowed_paths": ["/Users/philip/projects"],
@@ -424,7 +423,7 @@ auth:
   api_keys:
     - id: "openclaw-agent"
       key: "${TASK_RELAY_API_KEY}"  # Env var reference
-      allowed_types: ["shell", "claude-code", "codex"]  # optional
+      allowed_types: ["shell", "claude-code"]       # optional
       allowed_isolation: ["host", "docker"]              # optional
     - id: "test-script"
       key: "${TASK_RELAY_TEST_KEY}"
@@ -829,7 +828,7 @@ Tasks:
 Tasks:
 1. MCP server entry point (stdio transport)
 2. Tool definitions: submit_task, get_task, list_tasks, cancel_task, get_capabilities
-3. Shared SQLite access (file locking)
+3. HTTP client that forwards requests to localhost daemon
 4. CLI: `npx task-relay mcp` (starts MCP server instead of HTTP daemon)
 5. Tests
 
