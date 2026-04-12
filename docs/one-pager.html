@@ -919,9 +919,71 @@
         <span>npm publish</span>
         <span>CI/CD</span>
         <span>LICENSE</span>
+        <span>S3 backup (log + full)</span>
       </div>
     </div>
   </div>
+</div>
+
+<!-- BACKUPS -->
+<h2><span class="icon">💾</span> Backup & Log Archival</h2>
+<p class="section-desc">Periodic uploads to S3-compatible object storage. Tested with Backblaze B2, supports any S3-compatible provider.</p>
+
+<div class="arch-diagram" style="padding: 24px 36px;">
+  <div class="arch-row">
+    <div class="arch-box">
+      <div class="label">⚡ Task-Relay</div>
+      <div class="detail">SQLite DB · task logs<br>config · artifacts</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-box highlight">
+      <div class="label">📦 Backup Job</div>
+      <div class="detail">Scheduled (cron-like)<br>incremental logs + periodic full</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-box">
+      <div class="label">☁️ S3-Compatible</div>
+      <div class="detail">Backblaze B2 · AWS S3<br>MinIO · Cloudflare R2 · Wasabi</div>
+    </div>
+  </div>
+</div>
+
+<div class="isolation-grid">
+  <div class="isolation-card">
+    <div class="iso-header">
+      <h3>📊 Log Backup</h3>
+      <span class="iso-badge host" style="background:#74b9ff22;color:var(--blue);">INCREMENTAL</span>
+    </div>
+    <ul>
+      <li class="check">Runs every N minutes (configurable, default: 15min)</li>
+      <li class="check">Uploads new/changed task logs since last backup</li>
+      <li class="check">NDJSON format: one event per line, easy to query</li>
+      <li class="check">Low bandwidth — only deltas uploaded</li>
+      <li class="check">Path: s3://bucket/task-relay/logs/{date}/</li>
+    </ul>
+  </div>
+  <div class="isolation-card default">
+    <div class="iso-header">
+      <h3>🗄 Full Backup</h3>
+      <span class="iso-badge">PERIODIC</span>
+    </div>
+    <ul>
+      <li class="check">Runs daily (configurable, default: 2am local)</li>
+      <li class="check">SQLite DB snapshot + all task artifacts</li>
+      <li class="check">Compressed tar.gz upload</li>
+      <li class="check">Rotation: keep last N backups (default: 30)</li>
+      <li class="check">Path: s3://bucket/task-relay/backups/{date}.tar.gz</li>
+      <li class="check">Restore: download + extract + restart daemon</li>
+    </ul>
+  </div>
+</div>
+
+<div class="tech-row" style="margin-top:8px;">
+  <div class="tech-chip"><span class="dot" style="background:var(--green)"></span>AWS S3 SDK</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--orange)"></span>Backblaze B2</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--cyan)"></span>Cloudflare R2</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--blue)"></span>MinIO</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--accent)"></span>Wasabi</div>
 </div>
 
 <!-- RISKS -->

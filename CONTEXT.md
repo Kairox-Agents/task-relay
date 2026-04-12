@@ -30,6 +30,7 @@ All architecture decisions resolved. One-pager updated with full details.
 | Coordination | Linear plugin (v1.1) | Core is task-in→result-out, Linear is plugin via webhooks |
 | Package name | task-relay | npm: `npx task-relay start` |
 | DB | Better-SQLite3 | Embedded, zero deps, good for task state |
+| Backup | S3-compatible object storage | Backblaze B2 primary, supports AWS S3/MinIO/R2/Wasabi |
 
 ## Architecture
 
@@ -42,6 +43,7 @@ Agent → Tailscale → Task-Relay (HTTP daemon :8080)
                         │     └── Codex CLI (codex exec --full-auto --json)
                         ├── Executor: Host mode (opt-in, subprocess)
                         ├── Shell executor
+                        ├── Backup: S3-compatible (log + full)
                         └── Plugin hooks (Linear v1.1)
 ```
 
@@ -60,7 +62,7 @@ Agent → Tailscale → Task-Relay (HTTP daemon :8080)
 2. **Agent Executors** — Claude Code + Codex executors, concurrency queue, budget limits
 3. **Docker Isolation** — Container-per-task, Dockerfile, volume mounting, network isolation
 4. **MCP Server** — MCP adapter over stdio, tool definitions, capability discovery
-5. **Polish + Docs + Ship** — Config, logging, README, npm publish, CI, BSL 1.1 license
+5. **Polish + Docs + Ship** — Config, logging, README, npm publish, CI, BSL 1.1 license, S3 backup
 
 ## Files
 
