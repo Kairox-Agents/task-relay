@@ -67,6 +67,7 @@ Agent → Tailscale → Task-Relay (HTTP daemon :8080)
 ## Files
 
 - `docs/brief.md` — Original project brief
+- `docs/implementation-spec.md` — Full implementation specification (API, schemas, config, executor contracts, threat model, anti-scope)
 - `docs/one-pager.html` — Visual architecture one-pager (published as GitHub gist)
 - `README.md` — Project overview
 
