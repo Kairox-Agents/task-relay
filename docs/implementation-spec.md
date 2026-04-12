@@ -9,7 +9,7 @@
 ## 1. Product Definition
 
 ### What Task-Relay IS
-A single-process Node.js daemon that runs on a user's machine, accepts task submissions over HTTP from agents on the same Tailscale network, and executes them locally using installed CLI tools (Claude Code, Codex CLI, shell). It returns structured results.
+A single-process Node.js daemon that runs on a user's machine, accepts task submissions over HTTP from agents on the same Tailscale network, and executes them locally using installed CLI tools. v1 supports Claude Code and shell executors. Codex CLI support is deferred (flag information was inaccurate and needs fresh research).
 
 ### What Task-Relay IS NOT (explicit anti-scope)
 - ❌ NOT a multi-machine orchestrator or fleet manager
@@ -63,7 +63,7 @@ interface Task {
   error: string | null;          // Human-readable error message
 }
 
-type TaskType = "shell" | "claude-code" | "codex";
+type TaskType = "shell" | "claude-code"; // "codex" deferred — needs fresh flag research
 type TaskStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "timeout";
 ```
 
@@ -91,7 +91,8 @@ queued → running → completed
 4. `timeout_ms` range: 1000 to 3600000 (1s to 1h), default 300000
 5. `type` must be one of the enabled executors in config
 6. If `isolation: "host"` requested but `allow_host: false` in config → reject with 403
-7. Max 100 queued tasks (configurable). Reject with 429 if exceeded.
+7. If `type: "shell"` and `isolation: "docker"` → reject with 400 (shell executor has no Docker mode)
+8. Max 100 queued tasks (configurable). Reject with 429 if exceeded.
 
 ---
 
@@ -256,9 +257,11 @@ The MCP server is a separate entry point from the HTTP daemon. They share the sa
 | `get_capabilities` | See what this worker supports | (none) |
 
 ### Architecture Note
-The MCP server communicates with the same SQLite DB. It can run alongside the HTTP daemon or standalone. When standalone, it handles task execution itself. When alongside, it submits to the same queue.
+The MCP server does NOT access the SQLite database directly. Instead, it submits tasks to the HTTP daemon via `localhost:8080`. This eliminates all concurrency issues (no shared DB, no file locking, no busy_timeout needed).
 
-For v1: MCP server runs as a separate process, talks to the same SQLite DB. Only one process runs executors at a time (file lock on DB).
+If the HTTP daemon is not running when the MCP server starts, the MCP server returns an error to the MCP client.
+
+The MCP server is a thin transport adapter: it receives MCP tool calls over stdio and translates them into HTTP requests to the local daemon.
 
 ---
 
@@ -304,10 +307,11 @@ interface ExecutorResult {
 }
 ```
 
-### Shell Executor (Host only)
+### Shell Executor (Host mode only)
 - Spawns: `bash -c "{prompt}"` in `working_dir`
-- No Docker variant for shell (use claude-code/codex docker mode for sandboxed shell)
+- No Docker variant for shell. If `type: "shell"` + `isolation: "docker"` is submitted, reject with 400 validation error.
 - Passes `env` as environment variables
+- **Security note:** shell executor runs arbitrary commands as the current user. Only enable for trusted API keys. Restrict via `allowed_types` on API key config.
 
 ### Claude Code Executor
 
@@ -315,23 +319,36 @@ interface ExecutorResult {
 ```bash
 claude -p "{prompt}" \
   --output-format stream-json \
+  --verbose \
   --dangerously-skip-permissions \
   --max-budget-usd {max_budget_usd} \
   --model {model} \
-  --no-session-persistence \
-  --verbose
+  --session-id {task_id}
 ```
+
+Notes:
+- `--session-id {task_id}` — uses the task UUID as the Claude session ID. This makes the session transcript findable at a deterministic path for trace backup (see §8.5).
+- Do NOT use `--no-session-persistence` — it prevents the `.jsonl` session transcript from being written to disk, which breaks trace backup.
+- `--verbose` is REQUIRED with `--output-format stream-json` or output fails silently.
+- The session transcript is written to `~/.claude/projects/{cwd-dashed}/{task_id}.jsonl` where `{cwd-dashed}` is the working directory with `/` replaced by `-`.
 
 **Docker mode:**
 ```bash
 docker run --rm \
   -v {working_dir}:/workspace \
+  -w /workspace \
   --network none \
   -e ANTHROPIC_API_KEY \
   --memory 2g \
   --cpus 1 \
-  task-relay/claude-executor:latest \
-  claude -p "{prompt}" --output-format stream-json --dangerously-skip-permissions ...
+  task-relay/executor:latest \
+  claude -p "{prompt}" \
+    --output-format stream-json \
+    --verbose \
+    --dangerously-skip-permissions \
+    --max-budget-usd {max_budget_usd} \
+    --model {model} \
+    --session-id {task_id}
 ```
 
 Parsing: stdout is NDJSON. Events are `system`, `assistant`, `result`. We extract:
@@ -344,37 +361,14 @@ Parsing: stdout is NDJSON. Events are `system`, `assistant`, `result`. We extrac
 - `--system-prompt` replaces (not appends) default — we don't use it
 - `--json-schema` for structured output — not in v1
 
-### Codex Executor
+### Codex Executor (DEFERRED)
 
-**Host mode:**
-```bash
-codex exec "{prompt}" \
-  --full-auto \
-  --json \
-  --model {model}
-```
+Codex CLI integration is deferred from v1. Reason: the flag information in the original spec was inaccurate. Verified issues:
+- `--ephemeral` flag does not exist in Codex v0.41.0
+- `--full-auto` and `--dangerously-bypass-approvals-and-sandbox` are mutually exclusive (not complementary)
+- Needs fresh `codex exec --help` research against the latest version before implementation
 
-**Docker mode:**
-```bash
-docker run --rm \
-  -v {working_dir}:/workspace \
-  -e OPENAI_API_KEY \
-  --network none \
-  --memory 2g \
-  --cpus 1 \
-  task-relay/codex-executor:latest \
-  codex exec "{prompt}" --full-auto --json ...
-```
-
-Parsing: stdout is JSONL. Events are `thread.started`, `turn.started`, `item.completed`, `turn.completed`. We extract:
-- `item.completed` events → streamed as SSE `log` events
-- Final output from last `turn.completed`
-- Exit code from process
-
-**Gotchas:**
-- `codex exec` defaults to `danger-full-access` sandbox — always explicit about sandbox mode
-- Session resume (`--last`) is NOT used in v1 — each task is stateless
-- `-o` flag for output capture — we capture stdout directly instead
+When Codex support is added, a new executor module will be created following the same Executor interface. No changes to the core architecture needed.
 
 ---
 
@@ -396,15 +390,15 @@ WORKDIR /workspace
 ENTRYPOINT ["codex"]
 ```
 
-### unified executor (v1 choice — simpler)
+### unified executor (v1)
 ```dockerfile
 FROM node:20-slim
-RUN npm install -g @anthropic-ai/claude-code @openai/codex
+RUN npm install -g @anthropic-ai/claude-code
 WORKDIR /workspace
 # Entrypoint is set per-task via docker run command
 ```
 
-Decision: single image for v1. Simpler to build, update, and distribute. ~500MB.
+Decision: single image for v1 with Claude Code only. Codex added when its executor is implemented.
 
 Container constraints (configurable):
 - `--memory`: default 2g
@@ -469,10 +463,7 @@ executors:
     default_budget_usd: 1.00
     max_budget_usd: 5.00
     # API key comes from ANTHROPIC_API_KEY env var (not in config)
-  codex:
-    enabled: true
-    default_model: null  # Use Codex default
-    # API key comes from OPENAI_API_KEY env var
+  # codex: deferred — needs fresh flag research before implementation
 
 # Docker (only matters if isolation: docker)
 docker:
@@ -510,7 +501,7 @@ backup:
 logging:
   level: "info"                 # "debug" | "info" | "warn" | "error"
   format: "json"                # "json" | "text"
-  output: "/var/log/task-relay/daemon.log"
+  output: "~/.task-relay/logs/daemon.log"
   max_size_mb: 100
   max_files: 5
 
@@ -521,7 +512,6 @@ database:
 
 ### Environment Variables (not in config file)
 - `ANTHROPIC_API_KEY` — For Claude Code executor
-- `OPENAI_API_KEY` — For Codex executor
 - `AWS_ACCESS_KEY_ID` — For S3 backups
 - `AWS_SECRET_ACCESS_KEY` — For S3 backups
 - `TASK_RELAY_API_KEY` — Referenced in config via `${...}` syntax
@@ -572,11 +562,14 @@ When agents execute tasks via Claude Code or Codex, they produce rich trace data
 ### Claude Code Traces
 
 **Source 1: Session transcripts**
-- Location: `~/.claude/projects/{project-hash}/sessions/{session-id}.jsonl`
+- Location: `~/.claude/projects/{cwd-dashed}/{session-uuid}.jsonl`
+- Where `{cwd-dashed}` is the working directory with `/` replaced by `-` (e.g., `/Users/philip/projects/myapp` → `-Users-philip-projects-myapp`)
+- The session UUID is set via `--session-id {task_id}` flag on the `claude -p` command
+- Therefore the path is deterministic: `~/.claude/projects/{cwd-dashed}/{task_id}.jsonl`
 - Content: Full conversation history — prompts, tool calls, responses, file edits, errors
 - Format: One JSON object per line
-- Always written by Claude Code, no configuration needed
-- Path is deterministic: project hash is SHA-256 of the working directory path
+- Only written when `--no-session-persistence` is NOT used (we don't use it)
+- Three files are created per session: `.jsonl` (transcript), `todos/{uuid}-agent-{uuid}.json`, `debug/{uuid}.txt`. Only the `.jsonl` is the full conversation transcript.
 
 **Source 2: OpenTelemetry export**
 - Built into Claude Code (no plugins needed)
@@ -595,13 +588,11 @@ When agents execute tasks via Claude Code or Codex, they produce rich trace data
   ```
 
 **Implementation for Claude traces:**
-1. After each `claude-code` task completes, locate the session transcript in `~/.claude/projects/`
-2. Copy to S3: `traces/{task_id}/claude-session.jsonl`
-3. For OTel: set OTEL env vars on the subprocess. Options:
-   - **Simple (v1):** Point at a local OTLP collector sidecar that writes to files → upload to S3
-   - **Simpler (v1 fallback):** Use `OTEL_TRACES_EXPORTER=console` piped to a file, upload that file
-   - **Later:** Direct OTLP export to a hosted observability backend (Honeycomb, Datadog, etc.)
-4. Decision: **Start with session transcript file copy only.** It's the richest data source and requires zero OTel configuration. Add OTel export as a config option in v1.1.
+1. The Claude executor uses `--session-id {task_id}` flag (verified: works with UUID format)
+2. After each `claude-code` task completes, the transcript is at a known path: `~/.claude/projects/{cwd-dashed}/{task_id}.jsonl`
+3. The `cwd-dashed` string is computed by replacing `/` with `-` in the task's `working_dir`
+4. Copy to S3: `traces/{task_id}/claude-session.jsonl`
+5. Also copy the debug file if it exists: `~/.claude/debug/{task_id}.txt` → `traces/{task_id}/claude-debug.txt`
 
 ### Codex CLI Traces
 
@@ -637,17 +628,12 @@ backup:
     # Claude Code session transcript backup
     claude_code:
       enabled: true
-      sessions_dir: "~/.claude/projects"  # Where Claude stores sessions
-      upload_session: true                 # Copy session .jsonl after task
+      claude_dir: "~/.claude"          # Base Claude config directory
+      upload_session: true             # Copy session .jsonl after task
+      upload_debug: true               # Copy debug file after task
       # OTel export (v1.1, not implemented in v1)
       # otel_enabled: false
       # otel_endpoint: "http://localhost:4318"
-    # Codex trace backup
-    codex:
-      enabled: true
-      log_dir: "~/.codex/log"
-      upload_logs: true                    # Copy log files after task
-      rust_log: "info"                     # RUST_LOG level for subprocess
 ```
 
 ### S3 Layout
@@ -661,15 +647,10 @@ s3://{bucket}/
 │   ├── 2026-04-11.tar.gz
 │   └── 2026-04-12.tar.gz
 └── traces/                        # Agent trace data (per-task)
-    ├── {task-id-1}/
-    │   ├── claude-session.jsonl   # Claude Code full session transcript
-    │   └── exec-output.jsonl      # Already captured by task-relay
-    ├── {task-id-2}/
-    │   ├── codex-logs/
-    │   │   └── codex-tui.log      # Codex log file
-    │   └── exec-output.jsonl      # Already captured by task-relay
-    └── {task-id-3}/
-        └── exec-output.jsonl      # Shell task (no extra trace data)
+    └── {task-id}/
+        ├── claude-session.jsonl   # Claude Code full session transcript
+        ├── claude-debug.txt       # Claude Code debug log (optional)
+        └── exec-output.jsonl      # Already captured by task-relay
 ```
 
 ### Trace Backup Flow
@@ -678,13 +659,10 @@ s3://{bucket}/
 Task completes
     │
     ├── type == "claude-code"?
-    │   ├── Find latest session file in ~/.claude/projects/{hash}/sessions/
-    │   ├── Copy to S3: traces/{task_id}/claude-session.jsonl
+    │   ├── Compute path: ~/.claude/projects/{cwd-dashed}/{task_id}.jsonl
+    │   ├── Copy .jsonl to S3: traces/{task_id}/claude-session.jsonl
+    │   ├── Copy debug: ~/.claude/debug/{task_id}.txt → traces/{task_id}/claude-debug.txt
     │   └── (v1.1: also export OTel data if configured)
-    │
-    ├── type == "codex"?
-    │   ├── Copy ~/.codex/log/codex-tui.log to S3: traces/{task_id}/codex-logs/
-    │   └── (exec JSONL already in DB backup)
     │
     └── type == "shell"?
         └── (no extra trace data — output already in DB backup)
@@ -731,7 +709,6 @@ task-relay/
 │   │   ├── queue.ts             # Concurrency-limited task queue
 │   │   ├── shell.ts             # Shell executor
 │   │   ├── claude-code.ts       # Claude Code executor
-│   │   ├── codex.ts             # Codex CLI executor
 │   │   └── docker.ts            # Docker isolation wrapper
 │   ├── mcp/
 │   │   ├── server.ts            # MCP server entry point
@@ -751,7 +728,6 @@ task-relay/
 │   ├── executor/
 │   │   ├── shell.test.ts
 │   │   ├── claude-code.test.ts
-│   │   ├── codex.test.ts
 │   │   └── docker.test.ts
 │   ├── api/
 │   │   ├── tasks.test.ts
@@ -818,19 +794,19 @@ Tasks:
 
 **Deliverable:** Can submit shell tasks via REST API, get results, stream logs. No Docker, no agent executors yet.
 
-### Phase 2: Agent Executors
-**Duration estimate:** 2-3 days
+### Phase 2: Claude Code Executor
+**Duration estimate:** 1-2 days
 
 Tasks:
 1. Executor interface + registry
 2. Claude Code executor: subprocess spawning, stream-json parsing, cost extraction
-3. Codex executor: subprocess spawning, JSONL parsing
+3. `--session-id {task_id}` for deterministic session transcript paths
 4. Budget enforcement (kill task if budget exceeded, based on CLI-reported cost)
 5. Timeout enforcement (kill after timeout_ms)
-6. Model validation (reject unknown models)
+6. Model validation (reject unknown models against allowed list)
 7. Tests with mocked CLI output
 
-**Deliverable:** Can submit tasks of type `claude-code` and `codex`. Full lifecycle working.
+**Deliverable:** Can submit tasks of type `claude-code`. Full lifecycle working.
 
 ### Phase 3: Docker Isolation
 **Duration estimate:** 1-2 days
@@ -866,16 +842,18 @@ Tasks:
 1. S3 client wrapper
 2. Incremental log backup job
 3. Full backup job with rotation
-4. Agent trace backup: Claude session transcript copy + Codex log copy
+4. Agent trace backup: Claude session transcript copy + debug file copy
 5. Config for backup schedule, S3 credentials, and trace sources
 6. `task-relay backup` CLI command (manual trigger)
 7. `task-relay restore` CLI command
-7. Structured logging throughout (pino)
-8. README: installation, quickstart, config reference, API reference
-9. GitHub Actions CI (lint, test, build)
-10. npm package setup (bin entries, files whitelist)
-11. LICENSE file (BSL 1.1)
-12. Tag v0.1.0
+8. Structured logging throughout (pino)
+9. Task retention policy: prune tasks older than `retention.max_age_days` on startup and daily
+10. Graceful shutdown: on SIGTERM, wait up to 30s for running task to complete, then kill. Persist queued tasks in DB, resume on restart.
+11. README: installation, quickstart, config reference, API reference
+12. GitHub Actions CI (lint, test, build)
+13. npm package setup (bin entries, files whitelist)
+14. LICENSE file (BSL 1.1)
+15. Tag v0.1.0
 
 **Deliverable:** Publishable npm package with docs and CI.
 
@@ -949,7 +927,8 @@ These are explicitly deferred. Not "nice to have later" — they are NOT being b
 13. **WebSocket** — SSE is sufficient
 14. **Session persistence for agents** — each task is stateless
 15. **Gemini CLI** — can be added later as another executor
-16. **Auto-update** — manual npm update
+16. **Codex CLI** — deferred from v1. Flag information was inaccurate (`--ephemeral` doesn't exist, `--full-auto` and `--dangerously-bypass-approvals-and-sandbox` are mutually exclusive). Needs fresh research before implementation.
+17. **Auto-update** — manual npm update
 
 ---
 
@@ -966,3 +945,39 @@ task-relay restore --from URL # Restore from backup
 task-relay config validate    # Validate config file
 task-relay config show        # Show resolved config (sanitized)
 ```
+
+---
+
+## 16. Graceful Shutdown
+
+### SIGTERM handling
+1. Stop accepting new HTTP requests (return 503)
+2. Wait up to 30 seconds for the current running task to complete
+3. If task still running after 30s: send SIGTERM to subprocess / `docker stop`, wait 10s, SIGKILL
+4. Persist all queued task statuses to SQLite
+5. Exit process
+
+### Restart behavior
+- On startup, check SQLite for tasks in `running` status (leftover from unclean shutdown)
+- Set those to `failed` with error "daemon restarted during execution"
+- Re-queue any tasks that were in `queued` status
+
+---
+
+## 17. Task Retention
+
+### Config
+```yaml
+retention:
+  max_age_days: 90         # Delete tasks older than this
+  max_tasks: 10000         # Keep at most this many completed tasks
+  prune_on_startup: true   # Run cleanup on daemon start
+  prune_interval_hours: 24 # Run cleanup periodically
+```
+
+### Behavior
+- Prune deletes tasks with terminal status (`completed`, `failed`, `cancelled`, `timeout`) older than `max_age_days`
+- If more than `max_tasks` terminal tasks exist, delete oldest first
+- Running and queued tasks are never pruned
+- Associated output files (referenced by `output_path`) are also deleted
+- S3 backups are NOT affected (separate retention managed by backup rotation)

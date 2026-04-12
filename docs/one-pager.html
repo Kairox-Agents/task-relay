@@ -565,7 +565,7 @@
   <div class="arch-row">
     <div class="arch-box">
       <div class="label">🖥 Remote Agents</div>
-      <div class="detail">Claude · Codex · Gemini<br>Custom agents · Scripts</div>
+      <div class="detail">Claude · Custom agents · Scripts<br>(Codex deferred)</div>
     </div>
     <div class="arch-arrow">→</div>
     <div class="arch-box">
@@ -580,7 +580,7 @@
     <div class="arch-arrow">→</div>
     <div class="arch-box">
       <div class="label">⚙ Executors</div>
-      <div class="detail">Claude Code · Codex CLI<br>Shell · (Browserbase v1.1)</div>
+      <div class="detail">Claude Code · Shell<br>(Codex deferred — needs research)</div>
     </div>
   </div>
   <div class="arch-arrow-label">All traffic over Tailscale — zero public exposure</div>
@@ -592,8 +592,8 @@
         Container per task · mounted workspace<br>
         No host filesystem access · network: none<br>
         ~2-3s cold start · safe for untrusted agents<br>
-        <em>codex exec -s workspace-write</em><br>
-        <em>claude -p (in container)</em>
+        <em>claude -p (in container)</em><br>
+        <em>bash -c not available in docker</em>
       </div>
     </div>
     <div class="executor-card">
@@ -602,8 +602,8 @@
         Subprocess directly on machine<br>
         Full trust needed · zero overhead<br>
         For your own agents on your own machine<br>
-        <em>codex exec --full-auto</em><br>
-        <em>claude -p --dangerously-skip-permissions</em>
+        <em>claude -p --dangerously-skip-permissions</em><br>
+        <em>bash -c for shell tasks</em>
       </div>
     </div>
   </div>
@@ -824,22 +824,24 @@
       <div class="ec-body">
         claude -p "prompt" \<br>
         &nbsp;&nbsp;--output-format stream-json \<br>
+        &nbsp;&nbsp;--verbose \\<br>
         &nbsp;&nbsp;--dangerously-skip-permissions \<br>
-        &nbsp;&nbsp;--max-budget-usd 1.00<br><br>
+        &nbsp;&nbsp;--max-budget-usd 1.00 \<br>
+        &nbsp;&nbsp;--session-id {task_id}<br><br>
         NDJSON streaming · JSON schema output<br>
         --allowedTools for tool whitelisting<br>
-        No native sandbox → Docker mode critical
+        Session: ~/.claude/projects/{cwd}/{id}.jsonl<br>
+        ⚠ --no-session-persistence breaks trace backup
       </div>
     </div>
     <div class="executor-card">
-      <div class="ec-title">🟢 Codex CLI <span style="font-size:0.7em;color:var(--text-dim);font-weight:400;">v0.114.0</span></div>
+      <div class="ec-title">🟢 Codex CLI <span style="font-size:0.7em;color:var(--orange);font-weight:500;">DEFERRED</span></div>
       <div class="ec-body">
-        codex exec "prompt" \<br>
-        &nbsp;&nbsp;--full-auto --json<br><br>
-        JSONL event stream · Session resume<br>
-        Built-in sandboxes: -s read-only / workspace-write<br>
-        AGENTS.md cross-tool config (Copilot, Cursor)<br>
-        -o output.txt for file capture
+        Flag info was inaccurate.<br>
+        --ephemeral doesn't exist.<br>
+        --full-auto and --dangerously-bypass<br>
+        are mutually exclusive.<br>
+        Needs fresh research before implementation.
       </div>
     </div>
   </div>
@@ -876,14 +878,14 @@
   <div class="timeline-phase">
     <div class="phase-num">02</div>
     <div class="phase-body">
-      <h3>Agent Executors</h3>
-      <p>Claude Code executor (claude -p, stream-json parsing). Codex executor (codex exec, JSONL parsing). Concurrency queue (max 1). Budget/timeout enforcement.</p>
+      <h3>Claude Code Executor</h3>
+      <p>Claude Code executor (claude -p, stream-json parsing). Session tracking via --session-id. Concurrency queue (max 1). Budget/timeout enforcement.</p>
       <div class="deliverables">
         <span>claude-code executor</span>
-        <span>codex executor</span>
         <span>executor registry</span>
         <span>concurrency queue</span>
         <span>budget limits</span>
+        <span>session-id tracking</span>
       </div>
     </div>
   </div>
@@ -993,26 +995,26 @@
       <span class="iso-badge">PER-TASK</span>
     </div>
     <ul>
-      <li class="check">Session transcript: ~/.claude/projects/{hash}/sessions/*.jsonl</li>
+      <li class="check">Deterministic path: ~/.claude/projects/{cwd-dashed}/{task_id}.jsonl</li>
+      <li class="check">Uses --session-id {task_id} flag on claude -p</li>
       <li class="check">Full conversation: prompts, tool calls, edits, errors</li>
       <li class="check">Copied to S3 after each task completes</li>
-      <li class="check">Path: traces/{task_id}/claude-session.jsonl</li>
+      <li class="check">Debug file also copied: ~/.claude/debug/{task_id}.txt</li>
+      <li class="warn">Do NOT use --no-session-persistence — prevents transcript creation</li>
       <li class="check">OTel export available (v1.1): traces, metrics, events</li>
-      <li class="warn">OTel deferred to v1.1 — session transcripts are the richest source</li>
     </ul>
   </div>
   <div class="isolation-card">
     <div class="iso-header">
       <h3>🔍 Codex Traces</h3>
-      <span class="iso-badge host" style="background:#74b9ff22;color:var(--blue);">PER-TASK</span>
+      <span class="iso-badge host" style="background:var(--orange);color:var(--orange);">DEFERRED</span>
     </div>
     <ul>
-      <li class="check">Log files: ~/.codex/log/codex-tui.log (RUST_LOG)</li>
-      <li class="check">JSONL exec output already captured in task-relay DB</li>
-      <li class="check">Log files copied to S3 after each task completes</li>
-      <li class="check">Path: traces/{task_id}/codex-logs/</li>
-      <li class="warn">No OTel support in Codex CLI — logs + exec JSONL are the best available</li>
-      <li class="warn">Session state is internal Rust binary format, not backup-friendly</li>
+      <li class="warn">Codex CLI support deferred from v1</li>
+      <li class="warn">Flag information was inaccurate — needs fresh research</li>
+      <li class="warn">--ephemeral doesn't exist in v0.41.0</li>
+      <li class="warn">--full-auto and --dangerously-bypass-approvals-and-sandbox are mutually exclusive</li>
+      <li class="warn">Trace backup strategy TBD when Codex executor is added</li>
     </ul>
   </div>
 </div>

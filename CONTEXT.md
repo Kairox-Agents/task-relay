@@ -27,7 +27,7 @@ All architecture decisions resolved. One-pager updated with full details.
 | Browser | Browserbase + Firecrawl (v1.1) | Zero local risk, Playwright last resort v2 |
 | Auth | API key over Tailscale | Tailscale = network, API key = app |
 | License | BSL 1.1 (3-year change) | Individuals free, SaaS needs license, → Apache 2.0 |
-| Coordination | Linear plugin (v1.1) | Core is task-in→result-out, Linear is plugin via webhooks |
+| Codex CLI | Deferred from v1 | Flag info was inaccurate (`--ephemeral` doesn't exist, flags are mutually exclusive). Needs fresh research. |
 | Package name | task-relay | npm: `npx task-relay start` |
 | DB | Better-SQLite3 | Embedded, zero deps, good for task state |
 | Backup | S3-compatible object storage | Backblaze B2 primary, supports AWS S3/MinIO/R2/Wasabi |
@@ -42,20 +42,22 @@ Agent → Tailscale → Task-Relay (HTTP daemon :8080)
                         ├── Executor: Docker mode (default)
                         │     ├── Claude Code (claude -p --output-format stream-json)
                         │     └── Codex CLI (codex exec --full-auto --json)
+                        ├── Executor: Claude Code (claude -p --session-id {task_id} --output-format stream-json --verbose)
                         ├── Executor: Host mode (opt-in, subprocess)
-                        ├── Shell executor
+                        │     └── Shell (bash -c)
                         ├── Backup: S3-compatible (log + full + agent traces)
-                        └── Plugin hooks (Linear v1.1)
+                        ├── MCP: thin adapter → submits to HTTP daemon via localhost
+                        └── Plugin hooks (Linear v1.1, Codex v1.1)
 ```
 
 ## CLI Integration (from agent-cli-skills research)
 
-- **Claude Code v2.1.81:** `claude -p "prompt" --output-format stream-json --dangerously-skip-permissions --max-budget-usd 1.00`
+- **Claude Code v2.1.81:** `claude -p "prompt" --output-format stream-json --verbose --dangerously-skip-permissions --max-budget-usd 1.00 --session-id {task_id}`
   - NDJSON streaming, JSON schema output, tool whitelisting
   - No native sandbox → Docker mode important
-- **Codex CLI v0.114.0:** `codex exec "prompt" --full-auto --json`
-  - JSONL event stream, session resume, built-in sandboxes
-  - AGENTS.md cross-tool config
+  - Session transcript at `~/.claude/projects/{cwd-dashed}/{task_id}.jsonl`
+  - `--no-session-persistence` prevents transcript — DO NOT USE
+- **Codex CLI v0.114.0:** DEFERRED — flag info was inaccurate. Needs fresh research.
 
 ## Implementation Plan (5 phases)
 
