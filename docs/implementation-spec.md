@@ -531,6 +531,13 @@ database:
 
 ## 8. Backup System
 
+Task-Relay backs up three categories of data:
+1. **Task logs** — task-relay's own structured event data (incremental)
+2. **Full snapshots** — SQLite DB + config + artifacts (periodic)
+3. **Agent traces** — raw session transcripts and OTel data from Claude Code / Codex (per-task)
+
+All three go to the same S3-compatible bucket with different prefixes.
+
 ### Log Backup (Incremental)
 - Tracks last backup timestamp in `~/.task-relay/backup-state.json`
 - Queries SQLite for tasks/events created after that timestamp
@@ -554,6 +561,140 @@ Manual process (not automated in v1):
 1. `task-relay restore --from s3://bucket/backups/2026-04-12.tar.gz`
 2. Downloads and extracts to `~/.task-relay/`
 3. User restarts daemon
+
+---
+
+## 8.5. Agent Trace Backup
+
+### Why
+When agents execute tasks via Claude Code or Codex, they produce rich trace data — session transcripts, tool calls, model interactions. This data is valuable for debugging, auditing, cost analysis, and replay. It exists on the local machine in CLI-specific directories and can be lost if not backed up.
+
+### Claude Code Traces
+
+**Source 1: Session transcripts**
+- Location: `~/.claude/projects/{project-hash}/sessions/{session-id}.jsonl`
+- Content: Full conversation history — prompts, tool calls, responses, file edits, errors
+- Format: One JSON object per line
+- Always written by Claude Code, no configuration needed
+- Path is deterministic: project hash is SHA-256 of the working directory path
+
+**Source 2: OpenTelemetry export**
+- Built into Claude Code (no plugins needed)
+- Three signals:
+  - **Metrics:** token counts, cost, sessions, lines of code, tool decisions
+  - **Log events:** structured records per prompt, API request, API error, tool result
+  - **Traces (beta):** spans per interaction, model request, tool call, hook execution
+- Enabled via environment variables on the `claude -p` subprocess:
+  ```
+  CLAUDE_CODE_ENABLE_TELEMETRY=1
+  OTEL_TRACES_EXPORTER=otlp
+  OTEL_METRICS_EXPORTER=otlp
+  OTEL_LOGS_EXPORTER=otlp
+  OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+  ```
+
+**Implementation for Claude traces:**
+1. After each `claude-code` task completes, locate the session transcript in `~/.claude/projects/`
+2. Copy to S3: `traces/{task_id}/claude-session.jsonl`
+3. For OTel: set OTEL env vars on the subprocess. Options:
+   - **Simple (v1):** Point at a local OTLP collector sidecar that writes to files → upload to S3
+   - **Simpler (v1 fallback):** Use `OTEL_TRACES_EXPORTER=console` piped to a file, upload that file
+   - **Later:** Direct OTLP export to a hosted observability backend (Honeycomb, Datadog, etc.)
+4. Decision: **Start with session transcript file copy only.** It's the richest data source and requires zero OTel configuration. Add OTel export as a config option in v1.1.
+
+### Codex CLI Traces
+
+**Source 1: Execution log files**
+- Location: `~/.codex/log/codex-tui.log` (TUI mode)
+- Location: configurable via `-c log_dir=...`
+- Controlled by `RUST_LOG` env var (default: `codex_core=info,codex_tui=info,codex_rmcp_client=info`)
+- Format: Plain text Rust log output (not structured JSON)
+
+**Source 2: JSON exec output**
+- The `--json` flag on `codex exec` emits JSONL events to stdout
+- Events: `thread.started`, `turn.started`, `item.completed`, `turn.completed`
+- **We already capture this** as part of task execution — it's stored in the task DB and included in log backups
+
+**Source 3: Session state**
+- Codex stores session data for `resume --last` / `resume --all`
+- Location: `~/.codex/` (internal Rust binary format, not human-readable)
+- Not useful for external backup without Codex itself
+
+**Implementation for Codex traces:**
+1. After each `codex` task completes, copy `~/.codex/log/` files to S3: `traces/{task_id}/codex-logs/`
+2. The JSONL exec output is already captured in task-relay's DB — included in regular log backups
+3. No OTel support exists for Codex — this is the best we can do
+4. Set `RUST_LOG=info` on the subprocess to ensure reasonable log detail
+
+### Config Addition
+
+```yaml
+# In config.yaml, under backup:
+backup:
+  traces:
+    enabled: true
+    # Claude Code session transcript backup
+    claude_code:
+      enabled: true
+      sessions_dir: "~/.claude/projects"  # Where Claude stores sessions
+      upload_session: true                 # Copy session .jsonl after task
+      # OTel export (v1.1, not implemented in v1)
+      # otel_enabled: false
+      # otel_endpoint: "http://localhost:4318"
+    # Codex trace backup
+    codex:
+      enabled: true
+      log_dir: "~/.codex/log"
+      upload_logs: true                    # Copy log files after task
+      rust_log: "info"                     # RUST_LOG level for subprocess
+```
+
+### S3 Layout
+
+```
+s3://{bucket}/
+├── logs/                          # Task-relay structured logs (incremental)
+│   └── 2026-04-12/
+│       └── 1712880000.ndjson
+├── backups/                       # Full DB snapshots
+│   ├── 2026-04-11.tar.gz
+│   └── 2026-04-12.tar.gz
+└── traces/                        # Agent trace data (per-task)
+    ├── {task-id-1}/
+    │   ├── claude-session.jsonl   # Claude Code full session transcript
+    │   └── exec-output.jsonl      # Already captured by task-relay
+    ├── {task-id-2}/
+    │   ├── codex-logs/
+    │   │   └── codex-tui.log      # Codex log file
+    │   └── exec-output.jsonl      # Already captured by task-relay
+    └── {task-id-3}/
+        └── exec-output.jsonl      # Shell task (no extra trace data)
+```
+
+### Trace Backup Flow
+
+```
+Task completes
+    │
+    ├── type == "claude-code"?
+    │   ├── Find latest session file in ~/.claude/projects/{hash}/sessions/
+    │   ├── Copy to S3: traces/{task_id}/claude-session.jsonl
+    │   └── (v1.1: also export OTel data if configured)
+    │
+    ├── type == "codex"?
+    │   ├── Copy ~/.codex/log/codex-tui.log to S3: traces/{task_id}/codex-logs/
+    │   └── (exec JSONL already in DB backup)
+    │
+    └── type == "shell"?
+        └── (no extra trace data — output already in DB backup)
+```
+
+### Failure Handling
+- Trace backup failure does NOT affect task result delivery
+- If S3 upload fails, log a warning and continue
+- Retry trace uploads on next backup cycle (trace files remain on disk until successfully uploaded)
+- Never block task execution on trace backup
 
 ---
 
@@ -599,6 +740,7 @@ task-relay/
 │   │   ├── manager.ts           # Backup orchestrator
 │   │   ├── log-backup.ts        # Incremental log backup
 │   │   ├── full-backup.ts       # Full backup
+│   │   ├── trace-backup.ts      # Agent trace backup (Claude sessions + Codex logs)
 │   │   └── s3-client.ts         # S3 operations wrapper
 │   └── utils/
 │       ├── logger.ts            # Structured logging (pino)
@@ -616,7 +758,8 @@ task-relay/
 │   │   └── health.test.ts
 │   ├── backup/
 │   │   ├── log-backup.test.ts
-│   │   └── full-backup.test.ts
+│   │   ├── full-backup.test.ts
+│   │   └── trace-backup.test.ts
 │   └── fixtures/
 │       └── test-config.yaml
 ├── package.json
@@ -723,9 +866,10 @@ Tasks:
 1. S3 client wrapper
 2. Incremental log backup job
 3. Full backup job with rotation
-4. Config for backup schedule and S3 credentials
-5. `task-relay backup` CLI command (manual trigger)
-6. `task-relay restore` CLI command
+4. Agent trace backup: Claude session transcript copy + Codex log copy
+5. Config for backup schedule, S3 credentials, and trace sources
+6. `task-relay backup` CLI command (manual trigger)
+7. `task-relay restore` CLI command
 7. Structured logging throughout (pino)
 8. README: installation, quickstart, config reference, API reference
 9. GitHub Actions CI (lint, test, build)

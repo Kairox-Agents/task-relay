@@ -31,6 +31,7 @@ All architecture decisions resolved. One-pager updated with full details.
 | Package name | task-relay | npm: `npx task-relay start` |
 | DB | Better-SQLite3 | Embedded, zero deps, good for task state |
 | Backup | S3-compatible object storage | Backblaze B2 primary, supports AWS S3/MinIO/R2/Wasabi |
+| Agent traces | Per-task backup to S3 | Claude: session transcripts + OTel (v1.1). Codex: log files + captured JSONL |
 
 ## Architecture
 
@@ -43,7 +44,7 @@ Agent → Tailscale → Task-Relay (HTTP daemon :8080)
                         │     └── Codex CLI (codex exec --full-auto --json)
                         ├── Executor: Host mode (opt-in, subprocess)
                         ├── Shell executor
-                        ├── Backup: S3-compatible (log + full)
+                        ├── Backup: S3-compatible (log + full + agent traces)
                         └── Plugin hooks (Linear v1.1)
 ```
 

@@ -946,7 +946,7 @@
     <div class="arch-arrow">→</div>
     <div class="arch-box highlight">
       <div class="label">📦 Backup Job</div>
-      <div class="detail">Scheduled (cron-like)<br>incremental logs + periodic full</div>
+      <div class="detail">Scheduled (cron-like)<br>incremental logs + periodic full<br>per-task agent traces</div>
     </div>
     <div class="arch-arrow">→</div>
     <div class="arch-box">
@@ -982,6 +982,37 @@
       <li class="check">Rotation: keep last N backups (default: 30)</li>
       <li class="check">Path: s3://bucket/task-relay/backups/{date}.tar.gz</li>
       <li class="check">Restore: download + extract + restart daemon</li>
+    </ul>
+  </div>
+</div>
+
+<div class="isolation-grid" style="margin-top:16px;">
+  <div class="isolation-card default">
+    <div class="iso-header">
+      <h3>🔍 Claude Code Traces</h3>
+      <span class="iso-badge">PER-TASK</span>
+    </div>
+    <ul>
+      <li class="check">Session transcript: ~/.claude/projects/{hash}/sessions/*.jsonl</li>
+      <li class="check">Full conversation: prompts, tool calls, edits, errors</li>
+      <li class="check">Copied to S3 after each task completes</li>
+      <li class="check">Path: traces/{task_id}/claude-session.jsonl</li>
+      <li class="check">OTel export available (v1.1): traces, metrics, events</li>
+      <li class="warn">OTel deferred to v1.1 — session transcripts are the richest source</li>
+    </ul>
+  </div>
+  <div class="isolation-card">
+    <div class="iso-header">
+      <h3>🔍 Codex Traces</h3>
+      <span class="iso-badge host" style="background:#74b9ff22;color:var(--blue);">PER-TASK</span>
+    </div>
+    <ul>
+      <li class="check">Log files: ~/.codex/log/codex-tui.log (RUST_LOG)</li>
+      <li class="check">JSONL exec output already captured in task-relay DB</li>
+      <li class="check">Log files copied to S3 after each task completes</li>
+      <li class="check">Path: traces/{task_id}/codex-logs/</li>
+      <li class="warn">No OTel support in Codex CLI — logs + exec JSONL are the best available</li>
+      <li class="warn">Session state is internal Rust binary format, not backup-friendly</li>
     </ul>
   </div>
 </div>
