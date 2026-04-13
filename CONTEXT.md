@@ -1,6 +1,6 @@
 # Task-Relay — Project Context
 
-**Last Updated:** 2026-04-13 18:54 UTC (Phase 1 COMPLETE, 94/94 tests, Phase 2 SDK research done)
+**Last Updated:** 2026-04-13 19:05 UTC (Phase 3 foundation added, 103/103 tests passing)
 **Telegram Topic ID:** 232
 **Folder:** `projects/task-relay/`
 
@@ -10,7 +10,7 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 ## Current State
 
-**Phase: Phase 2 COMPLETE ✅ — 100/100 tests passing. Starting Phase 3 (Docker Isolation)**
+**Phase: Phase 3 IN PROGRESS 🚧 — Docker isolation foundation landed, 103/103 tests passing**
 
 ✅ **Phase 1 Complete:**
 - Config system (zod schema, YAML loader, env var interpolation)
@@ -29,9 +29,19 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 - System prompt builder with acceptance_criteria
 - Registered in CLI when config enables claude-code
 
-🧪 **Test Suite: 100/100 passing (100%) across 8 test files**
+🚧 **Phase 3 In Progress:**
+- Docker runner utility added (`src/executor/docker.ts`)
+- ClaudeCodeExecutor now routes `isolation: 'docker'` through container execution
+- Docker mode runs Claude CLI inside `task-relay/executor:latest`
+- Shell executor explicitly rejected for non-host isolation
+- Graceful failure path verified when `docker` is unavailable
 
-📋 **Next: Phase 3 — Docker Isolation**
+🧪 **Test Suite: 103/103 passing (100%) across 9 test files**
+
+📋 **Next for Phase 3:**
+- Build executor image definition
+- Wire docker config from app config instead of env fallbacks
+- Validate real docker execution on a host with Docker available
 
 ## Key Decisions (All Resolved)
 
