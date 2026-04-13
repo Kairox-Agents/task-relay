@@ -1,0 +1,135 @@
+#!/usr/bin/env node
+import { Command } from 'commander';
+import { loadConfig, validateConfig } from './config/index.js';
+import { initLogger } from './utils/logger.js';
+import { DatabaseManager, TaskRepository } from './db/index.js';
+import { registry } from './executor/index.js';
+import { ShellExecutor } from './executor/shell.js';
+import { TaskQueue } from './executor/queue.js';
+import { createServer } from './api/index.js';
+import { serve } from '@hono/node-server';
+
+const program = new Command();
+
+program
+  .name('task-relay')
+  .description('Local worker daemon for remote agent task execution')
+  .version('0.1.0');
+
+program
+  .command('start')
+  .description('Start the task-relay daemon')
+  .option('-c, --config <path>', 'Path to config file')
+  .action(async (options) => {
+    try {
+      // Load and validate config
+      const config = await loadConfig();
+      await validateConfig(config);
+
+      // Initialize logger
+      const logger = initLogger(config.logging);
+      logger.info('Task-Relay daemon starting...');
+
+      // Initialize database
+      const dbManager = new DatabaseManager();
+      const db = dbManager.getDatabase();
+      const taskRepo = new TaskRepository(db);
+
+      // Run retention on startup if configured
+      if (config.retention.run_on_startup) {
+        logger.info('Running task retention on startup');
+        const archived = taskRepo.archiveOldTasks(
+          config.retention.max_age_days,
+          config.retention.max_tasks
+        );
+        logger.info({ archived }, 'Task retention completed');
+      }
+
+      // Register executors
+      if (config.executors.shell.enabled) {
+        registry.register(new ShellExecutor());
+        logger.info('Shell executor registered');
+      }
+
+      // Initialize task queue
+      const taskQueue = new TaskQueue({
+        maxConcurrent: config.execution.max_concurrent,
+        maxQueueSize: config.execution.max_queue_size,
+      });
+
+      // Create HTTP server
+      const app = createServer(config, taskRepo, taskQueue);
+
+      // Start server
+      const port = config.server.port;
+      const bind = config.server.bind;
+
+      logger.info({ port, bind }, 'Starting HTTP server');
+
+      const server = serve({
+        fetch: app.fetch,
+        port,
+        hostname: bind,
+      });
+
+      // Graceful shutdown
+      const shutdown = async (signal: string) => {
+        logger.info({ signal }, 'Shutting down...');
+        server.close(async (err) => {
+          if (err) {
+            logger.error({ error: err }, 'Error closing server');
+          }
+
+          // Wait for running tasks to complete
+          logger.info('Waiting for running tasks to complete...');
+          await taskQueue.drain();
+
+          // Close database
+          dbManager.close();
+
+          logger.info('Shutdown complete');
+          process.exit(0);
+        });
+      };
+
+      process.on('SIGTERM', () => shutdown('SIGTERM'));
+      process.on('SIGINT', () => shutdown('SIGINT'));
+
+    } catch (error) {
+      console.error('Failed to start daemon:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('status')
+  .description('Check daemon status')
+  .action(async () => {
+    console.log('Status check not yet implemented');
+    // TODO: Check if daemon is running via pid file or API call
+  });
+
+program
+  .command('config')
+  .description('Config operations')
+  .argument('<action>', 'Action: validate | show')
+  .action(async (action) => {
+    if (action === 'validate') {
+      try {
+        const config = await loadConfig();
+        await validateConfig(config);
+        console.log('✓ Config is valid');
+      } catch (error) {
+        console.error('✗ Config validation failed:', error);
+        process.exit(1);
+      }
+    } else if (action === 'show') {
+      const config = await loadConfig();
+      console.log(JSON.stringify(config, null, 2));
+    } else {
+      console.error('Unknown action:', action);
+      process.exit(1);
+    }
+  });
+
+program.parse();
