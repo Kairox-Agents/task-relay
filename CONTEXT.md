@@ -1,6 +1,6 @@
 # Task-Relay — Project Context
 
-**Last Updated:** 2026-04-13
+**Last Updated:** 2026-04-13 (Phase 1 scaffolding complete)
 **Telegram Topic ID:** 232
 **Folder:** `projects/task-relay/`
 
@@ -10,7 +10,26 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 ## Current State
 
-**Phase: Spec audited and corrected. Ready for implementation approval.**
+**Phase: Phase 1 (Core Daemon + REST API) - scaffolding complete, integration in progress.**
+
+✅ **Done:**
+- Config system (zod schema, YAML loader, env var interpolation)
+- Database (SQLite WAL mode, migrations, task CRUD)
+- HTTP API (Hono server, auth/validation middleware, routes)
+- Executor framework (types, registry, queue, shell executor)
+- CLI (start/status/config commands)
+- LICENSE (BSL 1.1 → Apache 2.0 after 3 years)
+
+🚧 **In Progress:**
+- Task execution integration in daemon
+- SSE streaming implementation
+
+📋 **Next:**
+- Phase 2: Claude Code Executor (SDK + CLI fallback)
+- Phase 3: Docker Isolation
+- Phase 4: MCP Server
+- Phase 5: Backup + Polish + Ship
+- Phase 6: Judge Loop (v1.1)
 
 v1 scope: Claude Code + shell executors only. Codex CLI deferred (inaccurate flag info).
 
@@ -64,9 +83,9 @@ Agent → Tailscale → Task-Relay (HTTP daemon :8080)
 
 ## Implementation Plan (6 phases)
 
-1. **Core Daemon + REST API** — HTTP server, task model, SQLite (WAL), auth, shell executor
-2. **Claude Code Executor** — subprocess, stream-json parsing, --session-id, budget/timeout
-3. **Docker Isolation** — Dockerfile, container-per-task, volume mounting, resource limits
+1. **Core Daemon + REST API** ✅ Scaffolding done, 🚧 integration in progress — HTTP server, task model, SQLite (WAL), auth, shell executor
+2. **Claude Code Executor** 📋 — Claude Agent SDK (primary) + CLI fallback, hooks, session tracking, budget/timeout
+3. **Docker Isolation** 📋 — Dockerfile, container-per-task, volume mounting, resource limits
 4. **MCP Server** — stdio transport → HTTP localhost forwarding, tool definitions
 5. **Backup + Polish + Ship** — S3 (log/full/traces), retention, graceful shutdown, docs, npm publish, BSL 1.1
 6. **Judge Loop (v1.1)** — Deterministic checks, LLM judge, decision engine, worktree isolation, escalation logic
