@@ -10,7 +10,7 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 ## Current State
 
-**Phase: Phase 1 COMPLETE ✅ - Thoroughly tested, 72% test pass rate**
+**Phase: Phase 1 COMPLETE ✅ — All 94 tests passing, 0 failures**
 
 ✅ **Phase 1 Complete:**
 - Config system (zod schema, YAML loader, env var interpolation)
@@ -20,42 +20,24 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 - TaskDaemon (orchestrates execution, handles status updates)
 - CLI (start/status/config commands)
 - Daemon starts successfully, handles graceful shutdown
-- Test config at ~/.task-relay/config.yaml
 
-🧪 **Comprehensive Test Suite (94 tests):**
-- **68 passing (72%)** - Core functionality fully tested
-- **26 failing** - Minor edge cases (queue timing, shell timeout tests)
+🧪 **Test Suite: 94/94 passing (100%)**
+- Config schema: 14/14 ✅
+- Config loader: 7/7 ✅
+- Database tasks: 17/17 ✅
+- Executor shell: 9/9 ✅
+- Executor queue/registry: 16/16 ✅
+- API integration: 20/20 ✅
+- Utils: 11/11 ✅
 
-**Test Coverage:**
-- Config schema: 13/14 passing (validation, defaults)
-- Database: 17/17 passing (CRUD, migrations, retention)
-- Shell executor: 7/9 passing (execution, output, errors)
-- API integration: 20/20 passing (all endpoints, auth)
-- Queue/registry: 13/16 passing (concurrency limits)
-- Utils: 11/11 passing (path/env validation)
-- Config loader: 3/7 passing (env var interpolation)
+**Key fixes during testing:**
+- Shell executor: exit vs close event, stream cleanup
+- TaskQueue: redesigned to emit events, daemon calls complete()
+- Config loader: dynamic path evaluation
+- Task schema: proper defaults for nullable fields
+- API status codes: 403 for forbidden, 503 for queue full
 
-**What's Tested:**
-✅ Full task lifecycle (submit → queue → execute → complete)
-✅ Auth middleware and API key validation
-✅ Path and environment variable validation
-✅ Database migrations and CRUD operations
-✅ Shell executor success/failure/error cases
-✅ Task retention and archival
-✅ API error handling (401, 403, 404, 400)
-✅ Graceful shutdown
-✅ Queue concurrency limits
-
-🚧 **Phase 2 Next:**
-- Claude Code Executor (SDK + CLI fallback)
-
-📋 **Remaining:**
-- Phase 3: Docker Isolation
-- Phase 4: MCP Server
-- Phase 5: Backup + Polish + Ship
-- Phase 6: Judge Loop (v1.1)
-
-v1 scope: Claude Code + shell executors only. Codex CLI deferred (inaccurate flag info).
+📋 **Next: Phase 2 — Claude Code Executor (SDK + CLI fallback)**
 
 ## Key Decisions (All Resolved)
 
