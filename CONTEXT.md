@@ -10,22 +10,22 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 ## Current State
 
-**Phase: Phase 1 (Core Daemon + REST API) - scaffolding complete, integration in progress.**
+**Phase: Phase 1 COMPLETE ✅ - Starting Phase 2 (Claude Code Executor)**
 
-✅ **Done:**
+✅ **Phase 1 Complete:**
 - Config system (zod schema, YAML loader, env var interpolation)
 - Database (SQLite WAL mode, migrations, task CRUD)
 - HTTP API (Hono server, auth/validation middleware, routes)
 - Executor framework (types, registry, queue, shell executor)
+- TaskDaemon (orchestrates execution, handles status updates)
 - CLI (start/status/config commands)
-- LICENSE (BSL 1.1 → Apache 2.0 after 3 years)
+- Daemon starts successfully, handles graceful shutdown
+- Test config at ~/.task-relay/config.yaml
 
-🚧 **In Progress:**
-- Task execution integration in daemon
-- SSE streaming implementation
+🚧 **Phase 2 In Progress:**
+- Claude Code Executor (SDK + CLI fallback)
 
-📋 **Next:**
-- Phase 2: Claude Code Executor (SDK + CLI fallback)
+📋 **Remaining:**
 - Phase 3: Docker Isolation
 - Phase 4: MCP Server
 - Phase 5: Backup + Polish + Ship
