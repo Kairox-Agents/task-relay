@@ -57,6 +57,13 @@ program
         maxQueueSize: config.execution.max_queue_size,
       });
 
+      // Initialize daemon (wires up queue to executors)
+      const { TaskDaemon } = await import('./executor/daemon.js');
+      const daemon = new TaskDaemon({
+        taskQueue,
+        taskRepo,
+      });
+
       // Create HTTP server
       const app = createServer(config, taskRepo, taskQueue);
 
@@ -80,9 +87,8 @@ program
             logger.error({ error: err }, 'Error closing server');
           }
 
-          // Wait for running tasks to complete
-          logger.info('Waiting for running tasks to complete...');
-          await taskQueue.drain();
+          // Shutdown daemon (wait for running tasks)
+          await daemon.shutdown();
 
           // Close database
           dbManager.close();
