@@ -50,6 +50,12 @@ program
         logger.info('Shell executor registered');
       }
 
+      if (config.executors['claude-code'].enabled) {
+        const { ClaudeCodeExecutor } = await import('./executor/claude-code.js');
+        registry.register(new ClaudeCodeExecutor());
+        logger.info('Claude Code executor registered');
+      }
+
       // Initialize task queue
       const taskQueue = new TaskQueue({
         maxConcurrent: config.execution.max_concurrent,
