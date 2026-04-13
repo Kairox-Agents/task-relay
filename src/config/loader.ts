@@ -6,11 +6,16 @@ import { parse as parseYaml } from 'yaml';
 import { Config } from './schema.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 
-const CONFIG_PATHS = [
-  process.env.TASK_RELAY_CONFIG,
-  join(homedir(), '.task-relay', 'config.yaml'),
-  '/etc/task-relay/config.yaml',
-].filter(Boolean) as string[];
+/**
+ * Get config search paths. Evaluated at call time so env vars are current.
+ */
+function getConfigPaths(): string[] {
+  return [
+    process.env.TASK_RELAY_CONFIG,
+    join(homedir(), '.task-relay', 'config.yaml'),
+    '/etc/task-relay/config.yaml',
+  ].filter(Boolean) as string[];
+}
 
 /**
  * Interpolate environment variables in config values.
@@ -46,7 +51,7 @@ function interpolateEnvVars(obj: unknown): unknown {
  * Find and load config file from standard locations.
  */
 async function findConfigFile(): Promise<string | null> {
-  for (const path of CONFIG_PATHS) {
+  for (const path of getConfigPaths()) {
     if (existsSync(path)) {
       return path;
     }

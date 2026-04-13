@@ -14,14 +14,14 @@ export interface DaemonOptions {
 export class TaskDaemon {
   private taskQueue: TaskQueue;
   private taskRepo: TaskRepository;
-  private running: Map<string, AbortController> = new Map();
+  private running: Map<string, { cancel: () => void }> = new Map();
 
   constructor(options: DaemonOptions) {
     this.taskQueue = options.taskQueue;
     this.taskRepo = options.taskRepo;
 
-    // Listen for task-start events from queue
-    this.taskQueue.on('task-start', (task: Task) => {
+    // Listen for tasks that are ready to execute
+    this.taskQueue.on('task-ready', (task: Task) => {
       this.executeTask(task);
     });
   }
@@ -30,9 +30,6 @@ export class TaskDaemon {
    * Execute a task using the appropriate executor.
    */
   private async executeTask(task: Task): Promise<void> {
-    const abortController = new AbortController();
-    this.running.set(task.id, abortController);
-
     try {
       // Update task status to running
       this.taskRepo.updateStatus(task.id, 'running');
@@ -53,6 +50,9 @@ export class TaskDaemon {
         timeoutMs: task.timeout_ms,
         env: task.env,
       });
+
+      // Store cancel handle
+      this.running.set(task.id, { cancel: handle.cancel });
 
       // Wait for result
       const result = await handle.wait();
@@ -97,6 +97,8 @@ export class TaskDaemon {
       });
     } finally {
       this.running.delete(task.id);
+      // MUST call complete() so queue processes next task
+      this.taskQueue.complete(task.id);
     }
   }
 
@@ -104,9 +106,9 @@ export class TaskDaemon {
    * Cancel a running task.
    */
   cancelTask(taskId: string): boolean {
-    const abortController = this.running.get(taskId);
-    if (abortController) {
-      abortController.abort();
+    const handle = this.running.get(taskId);
+    if (handle) {
+      handle.cancel();
       logger.warn({ taskId }, 'Task cancelled');
       return true;
     }
@@ -115,10 +117,16 @@ export class TaskDaemon {
 
   /**
    * Shutdown: wait for running tasks to complete.
+   * Returns a promise that resolves when all running tasks finish.
    */
   async shutdown(): Promise<void> {
     logger.info('Daemon shutting down, waiting for running tasks...');
-    await this.taskQueue.drain();
+
+    // Wait for running set to be empty
+    while (this.running.size > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
     logger.info('All tasks completed');
   }
 }

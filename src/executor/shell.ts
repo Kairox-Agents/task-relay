@@ -33,53 +33,70 @@ export class ShellExecutor implements Executor {
     let output = '';
     let stderr = '';
     let timedOut = false;
+    let resolved = false;
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      proc.stdout?.destroy();
+      proc.stderr?.destroy();
+      try { proc.stdin?.end(); } catch {}
+    };
 
     const timeoutId = setTimeout(() => {
       logger.warn({ taskId: task.id }, 'Shell execution timed out, killing process');
       timedOut = true;
       proc.kill('SIGTERM');
-      setTimeout(() => proc.kill('SIGKILL'), 5000);
+      // Give process 2s to exit gracefully, then force kill
+      setTimeout(() => {
+        if (!resolved) {
+          proc.kill('SIGKILL');
+        }
+      }, 2000);
     }, timeoutMs);
 
     proc.stdout?.on('data', (data) => {
-      const chunk = data.toString();
-      output += chunk;
+      output += data.toString();
     });
 
     proc.stderr?.on('data', (data) => {
-      const chunk = data.toString();
-      stderr += chunk;
+      stderr += data.toString();
     });
 
+    const resolveResult = (resolve: (result: ExecutorResult) => void) => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+
+      const fullOutput = output + stderr;
+      try { writeFileSync(outputPath, fullOutput); } catch {}
+
+      const result: ExecutorResult = {
+        exitCode: timedOut ? null : proc.exitCode,
+        output,
+        error: timedOut ? 'Execution timed out' : (stderr || null),
+        outputPath,
+        costUsd: 0,
+      };
+
+      logger.info(
+        { taskId: task.id, exitCode: result.exitCode, error: result.error },
+        'Shell execution completed'
+      );
+
+      resolve(result);
+    };
+
     const promise = new Promise<ExecutorResult>((resolve) => {
-      proc.on('close', (code) => {
-        clearTimeout(timeoutId);
-
-        const fullOutput = output + stderr;
-        writeFileSync(outputPath, fullOutput);
-
-        const result: ExecutorResult = {
-          exitCode: timedOut ? null : code,
-          output,
-          error: timedOut ? 'Execution timed out' : (stderr || null),
-          outputPath,
-          costUsd: 0, // Shell executor has no cost
-        };
-
-        logger.info(
-          {
-            taskId: task.id,
-            exitCode: result.exitCode,
-            error: result.error,
-          },
-          'Shell execution completed'
-        );
-
-        resolve(result);
+      // Use 'exit' instead of 'close' — 'close' waits for stdio streams
+      // which can hang if pipes aren't properly drained
+      proc.on('exit', () => {
+        resolveResult(resolve);
       });
 
       proc.on('error', (err) => {
-        clearTimeout(timeoutId);
+        if (resolved) return;
+        resolved = true;
+        cleanup();
 
         const result: ExecutorResult = {
           exitCode: null,
@@ -96,9 +113,12 @@ export class ShellExecutor implements Executor {
 
     return {
       cancel: () => {
-        clearTimeout(timeoutId);
+        timedOut = true;
+        cleanup();
         proc.kill('SIGTERM');
-        setTimeout(() => proc.kill('SIGKILL'), 5000);
+        setTimeout(() => {
+          if (!resolved) proc.kill('SIGKILL');
+        }, 2000);
       },
       wait: () => promise,
     };

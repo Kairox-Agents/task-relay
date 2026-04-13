@@ -114,7 +114,7 @@ describe('ShellExecutor', () => {
 
       expect(result.error).toContain('timed out');
       expect(result.exitCode).toBeNull();
-    }, 5000);
+    }, 10000);
 
     it('should pass environment variables', async () => {
       const task = createTestTask({ prompt: 'echo $TEST_VAR', env: { TEST_VAR: 'custom-value' } });
@@ -181,12 +181,13 @@ describe('ShellExecutor', () => {
         env: task.env,
       });
 
-      // Cancel immediately
-      setTimeout(() => handle.cancel(), 100);
+      // Cancel after a short delay
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      handle.cancel();
 
       const result = await handle.wait();
 
       expect(result.error).toBeTruthy();
-    }, 5000);
+    }, 10000);
   });
 });

@@ -7,7 +7,7 @@ export interface QueueConfig {
 }
 
 export class TaskQueue extends EventEmitter {
-  private running: Map<string, Promise<void>> = new Map();
+  private running: Set<string> = new Set();
   private queue: Task[] = [];
   private config: QueueConfig;
 
@@ -33,60 +33,46 @@ export class TaskQueue extends EventEmitter {
   /**
    * Add a task to the queue.
    * Returns false if queue is full.
+   * Emits 'task-queued' for queued tasks, 'task-ready' for tasks that can start immediately.
    */
   add(task: Task): boolean {
     if (this.queue.length >= this.config.maxQueueSize) {
       return false;
     }
 
-    this.queue.push(task);
-    this.processQueue();
+    if (this.running.size < this.config.maxConcurrent) {
+      // Can start immediately
+      this.running.add(task.id);
+      this.emit('task-ready', task);
+    } else {
+      // Queue it
+      this.queue.push(task);
+      this.emit('task-queued', task);
+    }
+
     return true;
   }
 
   /**
-   * Process the queue when capacity is available.
+   * Mark a task as completed.
+   * This MUST be called by the executor/daemon when a task finishes.
+   * Triggers processing of next queued task.
+   */
+  complete(taskId: string): void {
+    this.running.delete(taskId);
+    this.emit('task-completed', taskId);
+    this.processQueue();
+  }
+
+  /**
+   * Process the queue: start next task if capacity available.
    */
   private processQueue(): void {
     while (this.running.size < this.config.maxConcurrent && this.queue.length > 0) {
       const task = this.queue.shift()!;
-      this.runTask(task);
+      this.running.add(task.id);
+      this.emit('task-ready', task);
     }
-  }
-
-  /**
-   * Run a single task.
-   */
-  private async runTask(task: Task): Promise<void> {
-    const promise = this.executeTask(task);
-    this.running.set(task.id, promise);
-
-    try {
-      await promise;
-    } finally {
-      this.running.delete(task.id);
-      this.emit('task-completed', task.id);
-      this.processQueue(); // Process next task
-    }
-  }
-
-  /**
-   * Execute task logic (to be implemented by daemon).
-   */
-  private async executeTask(task: Task): Promise<void> {
-    // This is a placeholder - the actual execution logic
-    // will be handled by the daemon which has access to
-    // the executor registry and task repository.
-    this.emit('task-start', task);
-    // Daemon will handle the actual execution
-  }
-
-  /**
-   * Wait for all running tasks to complete.
-   */
-  async drain(): Promise<void> {
-    const promises = Array.from(this.running.values());
-    await Promise.all(promises);
   }
 
   /**
@@ -94,5 +80,12 @@ export class TaskQueue extends EventEmitter {
    */
   clear(): void {
     this.queue = [];
+  }
+
+  /**
+   * Check if a task is currently running.
+   */
+  isRunning(taskId: string): boolean {
+    return this.running.has(taskId);
   }
 }

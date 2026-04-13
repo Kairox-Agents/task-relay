@@ -48,12 +48,12 @@ export function createTasksRoute(
     // Check isolation mode
     const isolation = body.isolation || defaultIsolation;
     if (auth?.allowedIsolation && !auth.allowedIsolation.includes(isolation)) {
-      throw new ApiError(ERROR_CODES.ISOLATION_NOT_ALLOWED, `Isolation mode ${isolation} not allowed for this API key`);
+      throw new ApiError(ERROR_CODES.ISOLATION_NOT_ALLOWED, `Isolation mode ${isolation} not allowed for this API key`, 403);
     }
 
     // Check working directory is allowed
     if (!isAllowedPath(body.working_dir, allowedPaths)) {
-      throw new ApiError(ERROR_CODES.PATH_NOT_ALLOWED, `Working directory ${body.working_dir} is not allowed`);
+      throw new ApiError(ERROR_CODES.PATH_NOT_ALLOWED, `Working directory ${body.working_dir} is not allowed`, 403);
     }
 
     // Check executor type
@@ -104,7 +104,7 @@ export function createTasksRoute(
     // Add to queue
     const added = taskQueue.add(task);
     if (!added) {
-      throw new ApiError(ERROR_CODES.QUEUE_FULL, 'Task queue is full');
+      throw new ApiError(ERROR_CODES.QUEUE_FULL, 'Task queue is full', 503);
     }
 
     logger.info({ taskId: task.id, type: task.type, isolation }, 'Task submitted');

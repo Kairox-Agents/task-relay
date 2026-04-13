@@ -68,18 +68,18 @@ export const Task = z.object({
   judge_model: z.string().nullable().default(null),
   current_iteration: z.number().default(1),
   judge_history: z.array(JudgeIteration).default([]),
-  judge_result: JudgeResult.nullable(),
+  judge_result: JudgeResult.nullable().default(null),
 
   // Status
   status: TaskStatus.default('pending'),
   created_at: z.string().datetime(),
-  started_at: z.string().datetime().nullable(),
-  completed_at: z.string().datetime().nullable(),
+  started_at: z.string().datetime().nullable().default(null),
+  completed_at: z.string().datetime().nullable().default(null),
 
   // Results
-  exit_code: z.number().int().nullable(),
-  error: z.string().nullable(),
-  output_path: z.string().nullable(),
+  exit_code: z.number().int().nullable().default(null),
+  error: z.string().nullable().default(null),
+  output_path: z.string().nullable().default(null),
   cost_usd: z.number().min(0).default(0),
 
   // Judge loop enforcement
