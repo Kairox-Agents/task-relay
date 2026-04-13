@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
-import type { Task, ExecutorType, IsolationMode } from '../../config/schema.js';
+import type { Task, IsolationMode } from '../../config/schema.js';
 import { TaskRepository } from '../../db/tasks.js';
 import { TaskQueue } from '../../executor/queue.js';
 import { registry } from '../../executor/registry.js';
-import { ApiError, ERROR_CODES, createErrorResponse } from '../errors.js';
+import { ApiError, ERROR_CODES } from '../errors.js';
 import { getAuthContext } from '../middleware/auth.js';
 import { validateBody, getValidatedBody } from '../middleware/validation.js';
 import { isAllowedPath, validateEnvVars } from '../../utils/env.js';
@@ -15,10 +15,10 @@ const logger = getLogger();
 
 // Request schema for task submission
 const CreateTaskSchema = z.object({
-  type: z.enum(['shell', 'claude-code']) as z.ZodType<ExecutorType>,
+  type: z.enum(['shell', 'claude-code']),
   prompt: z.string().min(1),
   working_dir: z.string().min(1),
-  isolation: z.enum(['docker', 'host', 'worktree']) as z.ZodType<IsolationMode>.optional(),
+  isolation: z.enum(['docker', 'host', 'worktree']).optional(),
   timeout_ms: z.number().min(1000).max(3600000).optional(),
   env: z.record(z.string()).optional(),
   allow_network: z.boolean().optional(),
@@ -27,23 +27,6 @@ const CreateTaskSchema = z.object({
   acceptance_criteria: z.string().nullable().optional(),
   max_iterations: z.number().min(1).max(20).optional(),
   judge_model: z.string().nullable().optional(),
-});
-
-// Response schema
-const TaskResponseSchema = z.object({
-  id: z.string().uuid(),
-  type: z.string(),
-  prompt: z.string(),
-  working_dir: z.string(),
-  isolation: z.string(),
-  status: z.string(),
-  created_at: z.string(),
-  started_at: z.string().nullable(),
-  completed_at: z.string().nullable(),
-  exit_code: z.number().nullable(),
-  error: z.string().nullable(),
-  cost_usd: z.number(),
-  // Omit sensitive/internal fields
 });
 
 export function createTasksRoute(

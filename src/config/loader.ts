@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
-import { Config, DEFAULT_CONFIG } from './schema.js';
+import { Config } from './schema.js';
+import { DEFAULT_CONFIG } from './defaults.js';
 
 const CONFIG_PATHS = [
   process.env.TASK_RELAY_CONFIG,

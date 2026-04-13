@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
-import { createAuthMiddleware } from './middleware/auth.js';
 import { createTasksRoute } from './routes/tasks.js';
 import { createHealthRoute } from './routes/health.js';
 import { createCapabilitiesRoute } from './routes/capabilities.js';
@@ -25,7 +24,8 @@ export function createServer(
   const healthRoute = createHealthRoute();
   app.route('/health', healthRoute);
 
-  // Authenticated routes
+  // Auth middleware
+  const { createAuthMiddleware } = require('./middleware/auth.js');
   const authMiddleware = createAuthMiddleware(config.auth.api_keys);
 
   const tasksRoute = createTasksRoute(
@@ -37,15 +37,24 @@ export function createServer(
   );
   const capabilitiesRoute = createCapabilitiesRoute(config);
 
-  app.route('/tasks', tasksRoute);
-  app.route('/capabilities', capabilitiesRoute);
+  // Apply auth middleware to protected routes
+  const protectedTasks = new Hono();
+  protectedTasks.use('*', authMiddleware);
+  protectedTasks.route('/', tasksRoute);
+
+  const protectedCapabilities = new Hono();
+  protectedCapabilities.use('*', authMiddleware);
+  protectedCapabilities.route('/', capabilitiesRoute);
+
+  app.route('/tasks', protectedTasks);
+  app.route('/capabilities', protectedCapabilities);
 
   // Error handling
   app.onError((err, c) => {
     console.error('API Error:', err);
 
     if (err instanceof ApiError) {
-      return c.json(createErrorResponse(err), err.statusCode);
+      return c.json(createErrorResponse(err), err.statusCode as any);
     }
 
     // Unknown error
@@ -56,7 +65,7 @@ export function createServer(
           message: 'An unexpected error occurred',
         },
       },
-      500
+      500 as any
     );
   });
 
@@ -69,7 +78,7 @@ export function createServer(
           message: 'Endpoint not found',
         },
       },
-      404
+      404 as any
     );
   });
 

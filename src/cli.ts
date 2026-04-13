@@ -19,8 +19,7 @@ program
 program
   .command('start')
   .description('Start the task-relay daemon')
-  .option('-c, --config <path>', 'Path to config file')
-  .action(async (options) => {
+  .action(async () => {
     try {
       // Load and validate config
       const config = await loadConfig();

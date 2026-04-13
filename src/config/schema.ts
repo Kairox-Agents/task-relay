@@ -88,6 +88,25 @@ export const Task = z.object({
 });
 export type Task = z.infer<typeof Task>;
 
+// Config inferred types (will be populated below)
+export type ApiKeyConfig = z.infer<typeof ApiKeyConfig>;
+export type AuthConfig = z.infer<typeof AuthConfig>;
+export type ExecutionConfig = z.infer<typeof ExecutionConfig>;
+export type ScoringConfig = z.infer<typeof ScoringConfig>;
+export type DeterministicChecksConfig = z.infer<typeof DeterministicChecksConfig>;
+export type EscalationConfig = z.infer<typeof EscalationConfig>;
+export type JudgeConfig = z.infer<typeof JudgeConfig>;
+export type PathsConfig = z.infer<typeof PathsConfig>;
+export type EnvConfig = z.infer<typeof EnvConfig>;
+export type ShellExecutorConfig = z.infer<typeof ShellExecutorConfig>;
+export type ClaudeCodeExecutorConfig = z.infer<typeof ClaudeCodeExecutorConfig>;
+export type ExecutorsConfig = z.infer<typeof ExecutorsConfig>;
+export type DockerConfig = z.infer<typeof DockerConfig>;
+export type WorktreeConfig = z.infer<typeof WorktreeConfig>;
+export type BackupConfig = z.infer<typeof BackupConfig>;
+export type RetentionConfig = z.infer<typeof RetentionConfig>;
+export type LoggingConfig = z.infer<typeof LoggingConfig>;
+
 // Config schema
 export const ServerConfig = z.object({
   port: z.number().min(1).max(65535).default(8080),

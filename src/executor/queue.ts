@@ -1,6 +1,5 @@
 import { EventEmitter } from 'node:events';
 import type { Task } from '../config/schema.js';
-import type { Executor } from './types.js';
 
 export interface QueueConfig {
   maxConcurrent: number;

@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
-import type { ApiKeyConfig, ExecutorType, IsolationMode } from '../../config/schema.js';
+import type { ExecutorType, IsolationMode } from '../../config/schema.js';
+import type { ApiKeyConfig } from '../../config/schema.js';
 import { ApiError, ERROR_CODES } from '../errors.js';
 
 interface AuthContext {

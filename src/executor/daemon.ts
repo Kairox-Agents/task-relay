@@ -1,7 +1,6 @@
 import type { Task, TaskStatus } from '../config/schema.js';
 import type { TaskQueue } from './queue.js';
 import type { TaskRepository } from '../db/tasks.js';
-import type { Executor } from './types.js';
 import { registry } from './registry.js';
 import { getLogger } from '../utils/logger.js';
 

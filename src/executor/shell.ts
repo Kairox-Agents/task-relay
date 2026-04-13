@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { Executor, ExecutorOptions, ExecutorResult, ExecutorHandle } from './types.js';
 import { getLogger } from '../utils/logger.js';
-import type { Task } from '../config/schema.js';
 
 const logger = getLogger();
 
