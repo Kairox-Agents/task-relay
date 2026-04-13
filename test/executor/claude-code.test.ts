@@ -149,5 +149,39 @@ describe('ClaudeCodeExecutor', () => {
       expect(result).toHaveProperty('error');
       expect(result).toHaveProperty('costUsd');
     }, 5000);
+
+    it('should route docker isolation through docker runner and fail gracefully without docker', async () => {
+      const task = {
+        id: '550e8400-e29b-41d4-a716-446655440003',
+        type: 'claude-code' as const,
+        prompt: 'say hi from docker',
+        working_dir: '/tmp',
+        isolation: 'docker' as const,
+        timeout_ms: 5000,
+        env: {},
+        allow_network: false,
+        model: 'sonnet',
+        max_budget_usd: 1.0,
+        acceptance_criteria: null,
+        max_iterations: 5,
+        judge_model: null,
+        current_iteration: 1,
+        judge_history: [],
+        judge_result: null,
+        status: 'pending' as const,
+        created_at: new Date().toISOString(),
+      };
+
+      const handle = executor.execute({
+        task,
+        workingDir: '/tmp',
+        isolation: 'docker',
+        timeoutMs: 5000,
+        env: {},
+      });
+
+      const result = await handle.wait();
+      expect(result.error).toBeTruthy();
+    }, 10000);
   });
 });

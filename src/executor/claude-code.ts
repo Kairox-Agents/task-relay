@@ -5,6 +5,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import type { Executor, ExecutorOptions, ExecutorResult, ExecutorHandle } from './types.js';
 import type { Task } from '../config/schema.js';
 import { getLogger } from '../utils/logger.js';
+import { runInDocker } from './docker.js';
 
 const logger = getLogger();
 
@@ -22,7 +23,7 @@ export class ClaudeCodeExecutor implements Executor {
   }
 
   execute(options: ExecutorOptions): ExecutorHandle {
-    const { task, workingDir, timeoutMs, env } = options;
+    const { task, workingDir, timeoutMs, env, isolation } = options;
     const outputDir = join(tmpdir(), 'task-relay', task.id);
     mkdirSync(outputDir, { recursive: true });
     const outputPath = join(outputDir, 'output.log');
@@ -37,6 +38,10 @@ export class ClaudeCodeExecutor implements Executor {
     let abortController = new AbortController();
 
     const promise = (async (): Promise<ExecutorResult> => {
+      if (isolation === 'docker') {
+        return await this.executeInDocker(task, workingDir, env, timeoutMs, outputPath, abortController);
+      }
+
       try {
         return await this.executeWithSDK(task, workingDir, env, timeoutMs, outputPath, abortController);
       } catch (sdkError) {
@@ -143,6 +148,63 @@ export class ClaudeCodeExecutor implements Executor {
       outputPath,
       costUsd,
     };
+  }
+
+  /**
+   * Execute inside Docker container.
+   * v1 strategy: run Claude CLI inside the executor image.
+   */
+  private async executeInDocker(
+    task: Task,
+    workingDir: string,
+    env: Record<string, string> | undefined,
+    timeoutMs: number,
+    outputPath: string,
+    abortController: AbortController
+  ): Promise<ExecutorResult> {
+    const command = [
+      'claude',
+      '-p', task.prompt,
+      '--output-format', 'stream-json',
+      '--verbose',
+      '--dangerously-skip-permissions',
+      '--max-budget-usd', task.max_budget_usd.toFixed(2),
+      '--session-id', task.id,
+    ];
+
+    if (task.model) {
+      command.push('--model', task.model);
+    }
+
+    const docker = runInDocker({
+      image: process.env.TASK_RELAY_DOCKER_IMAGE || 'task-relay/executor:latest',
+      workingDir,
+      timeoutMs,
+      outputPath,
+      network: 'none',
+      readOnly: true,
+      memory: process.env.TASK_RELAY_DOCKER_MEMORY || '2g',
+      cpus: Number(process.env.TASK_RELAY_DOCKER_CPUS || '1'),
+      env,
+      command,
+      abortSignal: abortController.signal,
+    });
+
+    const result = await docker.wait();
+
+    // Parse CLI stream-json result cost if present
+    let costUsd = 0;
+    try {
+      const lines = result.output.split('\n').filter(Boolean);
+      for (const line of lines) {
+        const parsed = JSON.parse(line);
+        if (parsed.type === 'result' && parsed.cost_usd) {
+          costUsd = parsed.cost_usd;
+        }
+      }
+    } catch {}
+
+    return { ...result, costUsd };
   }
 
   /**

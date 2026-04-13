@@ -251,7 +251,7 @@ describe('API Integration Tests', () => {
       expect(data.error.code).toBe('VALIDATION_ERROR');
     });
 
-    it('should reject disallowed isolation mode', async () => {
+    it('should reject shell executor in docker isolation', async () => {
       const taskData = {
         type: 'shell',
         prompt: 'echo "test"',
@@ -266,6 +266,7 @@ describe('API Integration Tests', () => {
 
       expect(status).toBe(403);
       expect(data.error.code).toBe('ISOLATION_NOT_ALLOWED');
+      expect(data.error.message).toContain('Shell executor only supports host isolation');
     });
 
     it('should reject disallowed working directory', async () => {

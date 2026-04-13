@@ -47,6 +47,9 @@ export function createTasksRoute(
 
     // Check isolation mode
     const isolation = body.isolation || defaultIsolation;
+    if (body.type === 'shell' && isolation !== 'host') {
+      throw new ApiError(ERROR_CODES.ISOLATION_NOT_ALLOWED, 'Shell executor only supports host isolation', 403);
+    }
     if (auth?.allowedIsolation && !auth.allowedIsolation.includes(isolation)) {
       throw new ApiError(ERROR_CODES.ISOLATION_NOT_ALLOWED, `Isolation mode ${isolation} not allowed for this API key`, 403);
     }

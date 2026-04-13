@@ -10,7 +10,7 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 ## Current State
 
-**Phase: Phase 1 COMPLETE ✅ — All 94 tests passing, 0 failures**
+**Phase: Phase 2 COMPLETE ✅ — 100/100 tests passing. Starting Phase 3 (Docker Isolation)**
 
 ✅ **Phase 1 Complete:**
 - Config system (zod schema, YAML loader, env var interpolation)
@@ -21,23 +21,17 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 - CLI (start/status/config commands)
 - Daemon starts successfully, handles graceful shutdown
 
-🧪 **Test Suite: 94/94 passing (100%)**
-- Config schema: 14/14 ✅
-- Config loader: 7/7 ✅
-- Database tasks: 17/17 ✅
-- Executor shell: 9/9 ✅
-- Executor queue/registry: 16/16 ✅
-- API integration: 20/20 ✅
-- Utils: 11/11 ✅
+✅ **Phase 2 Complete:**
+- ClaudeCodeExecutor with SDK primary + CLI fallback
+- SDK: query() with permissionMode, streaming, cost tracking via total_cost_usd
+- CLI: claude -p with stream-json, session-id, budget, model
+- Cancel via AbortController (SDK) and SIGTERM (CLI)
+- System prompt builder with acceptance_criteria
+- Registered in CLI when config enables claude-code
 
-**Key fixes during testing:**
-- Shell executor: exit vs close event, stream cleanup
-- TaskQueue: redesigned to emit events, daemon calls complete()
-- Config loader: dynamic path evaluation
-- Task schema: proper defaults for nullable fields
-- API status codes: 403 for forbidden, 503 for queue full
+🧪 **Test Suite: 100/100 passing (100%) across 8 test files**
 
-📋 **Next: Phase 2 — Claude Code Executor (SDK + CLI fallback)**
+📋 **Next: Phase 3 — Docker Isolation**
 
 ## Key Decisions (All Resolved)
 
