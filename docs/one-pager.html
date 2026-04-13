@@ -808,6 +808,7 @@
   <div class="tech-chip"><span class="dot" style="background:var(--green)"></span>Node.js</div>
   <div class="tech-chip"><span class="dot" style="background:var(--blue)"></span>Hono (HTTP)</div>
   <div class="tech-chip"><span class="dot" style="background:var(--blue)"></span>Better-SQLite3</div>
+  <div class="tech-chip"><span class="dot" style="background:var(--cyan)"></span>Claude Agent SDK</div>
   <div class="tech-chip"><span class="dot" style="background:var(--cyan)"></span>@modelcontextprotocol/sdk</div>
   <div class="tech-chip"><span class="dot" style="background:var(--orange)"></span>Docker (optional)</div>
   <div class="tech-chip"><span class="dot" style="background:var(--accent)"></span>Tailscale</div>
@@ -830,9 +831,9 @@
         &nbsp;&nbsp;--max-budget-usd 1.00 \<br>
         &nbsp;&nbsp;--session-id {task_id}<br><br>
         NDJSON streaming · JSON schema output<br>
-        --allowedTools for tool whitelisting<br>
+        SDK: typed messages · hooks · multi-turn<br>
         Session: ~/.claude/projects/{cwd}/{id}.jsonl<br>
-        ⚠ --no-session-persistence breaks trace backup
+        Fallback: claude -p with --session-id
       </div>
     </div>
     <div class="executor-card">
@@ -880,13 +881,14 @@
     <div class="phase-num">02</div>
     <div class="phase-body">
       <h3>Claude Code Executor</h3>
-      <p>Claude Code executor (claude -p, stream-json parsing). Session tracking via --session-id. Concurrency queue (max 1). Budget/timeout enforcement.</p>
+      <p>Claude Agent SDK (primary) + CLI fallback. Typed messages, hooks, session tracking. Concurrency queue (max 1). Budget/timeout enforcement.</p>
       <div class="deliverables">
-        <span>claude-code executor</span>
+        <span>Claude Agent SDK integration</span>
+        <span>CLI fallback (claude -p)</span>
         <span>executor registry</span>
         <span>concurrency queue</span>
         <span>budget limits</span>
-        <span>session-id tracking</span>
+        <span>hooks: audit, tracking</span>
       </div>
     </div>
   </div>
@@ -934,6 +936,23 @@
         <span>Agent trace backup</span>
         <span>Graceful shutdown</span>
         <span>Task retention</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline-phase" style="border-color: var(--accent); box-shadow: 0 0 20px #6c5ce711;">
+    <div class="phase-num">06</div>
+    <div class="phase-body">
+      <h3>Judge Loop (v1.1)</h3>
+      <p>Deterministic checks (tests/lint/typecheck) → LLM judge (different model) → decision engine → correct/escalate. Worktree isolation for lighter sandboxing.</p>
+      <div class="deliverables">
+        <span>deterministic checks</span>
+        <span>LLM judge integration</span>
+        <span>decision engine</span>
+        <span>correction prompt builder</span>
+        <span>escalation logic</span>
+        <span>worktree isolation</span>
+        <span>cross-model review</span>
       </div>
     </div>
   </div>
