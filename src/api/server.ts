@@ -4,6 +4,7 @@ import { logger as honoLogger } from 'hono/logger';
 import { createTasksRoute } from './routes/tasks.js';
 import { createHealthRoute } from './routes/health.js';
 import { createCapabilitiesRoute } from './routes/capabilities.js';
+import { createAuthMiddleware } from './middleware/auth.js';
 import { createErrorResponse, ApiError } from './errors.js';
 import type { Config } from '../config/schema.js';
 import type { TaskRepository } from '../db/tasks.js';
@@ -25,7 +26,6 @@ export function createServer(
   app.route('/health', healthRoute);
 
   // Auth middleware
-  const { createAuthMiddleware } = require('./middleware/auth.js');
   const authMiddleware = createAuthMiddleware(config.auth.api_keys);
 
   const tasksRoute = createTasksRoute(
