@@ -10,7 +10,7 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 ## Current State
 
-**Phase: Phase 3 IN PROGRESS 🚧 — Docker isolation foundation landed, 103/103 tests passing**
+**Phase: Phase 3 IN PROGRESS 🚧 — 205/205 tests passing across 17 files**
 
 ✅ **Phase 1 Complete:**
 - Config system (zod schema, YAML loader, env var interpolation)
@@ -36,12 +36,22 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 - Shell executor explicitly rejected for non-host isolation
 - Graceful failure path verified when `docker` is unavailable
 
-🧪 **Test Suite: 103/103 passing (100%) across 9 test files**
+🧪 **Test Suite: 205/205 passing (100%) across 17 test files**
+- config: schema (14), loader (7), edge-cases (6)
+- db: tasks (19), edge-cases (16)
+- executor: shell (22), claude-code (7), docker (2), queue (16), queue-drain (11), daemon (14)
+- api: integration (17), sse-and-misc (10)
+- e2e: lifecycle (15), concurrency (5)
+- security: auth-injection (13)
+- utils: env (11)
 
-📋 **Next for Phase 3:**
-- Build executor image definition
-- Wire docker config from app config instead of env fallbacks
-- Validate real docker execution on a host with Docker available
+Bugs found and fixed during testing:
+- Queue.add() rejected valid tasks when maxQueueSize=0 + running slot available
+- Shell executor threw on sync spawn errors (ENOTDIR) instead of returning result
+- DELETE /tasks/:id didn't call daemon.cancelTask() — cancel was DB-only
+- env validation errors thrown as raw Error (500) not ApiError (400)
+- Malformed JSON body threw SyntaxError (500) not ApiError (400)
+- Daemon wired through to API server for real cancellation
 
 ## Key Decisions (All Resolved)
 
