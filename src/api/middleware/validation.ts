@@ -19,6 +19,9 @@ export function validateBody<T extends z.ZodTypeAny>(schema: T): MiddlewareHandl
           error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')
         );
       }
+      if (error instanceof SyntaxError) {
+        throw new ApiError(ERROR_CODES.VALIDATION_ERROR, 'Invalid JSON body', 400);
+      }
       throw error;
     }
   };

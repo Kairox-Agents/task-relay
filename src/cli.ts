@@ -70,7 +70,7 @@ program
       });
 
       // Create HTTP server
-      const app = createServer(config, taskRepo, taskQueue);
+      const app = createServer(config, taskRepo, taskQueue, daemon);
 
       // Start server
       const port = config.server.port;

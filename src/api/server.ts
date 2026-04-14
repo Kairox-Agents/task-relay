@@ -9,11 +9,13 @@ import { createErrorResponse, ApiError } from './errors.js';
 import type { Config } from '../config/schema.js';
 import type { TaskRepository } from '../db/tasks.js';
 import type { TaskQueue } from '../executor/queue.js';
+import type { TaskDaemon } from '../executor/daemon.js';
 
 export function createServer(
   config: Config,
   taskRepo: TaskRepository,
-  taskQueue: TaskQueue
+  taskQueue: TaskQueue,
+  daemon?: TaskDaemon
 ) {
   const app = new Hono();
 
@@ -33,7 +35,8 @@ export function createServer(
     taskQueue,
     config.execution.default_isolation,
     config.paths.allowed,
-    config.env
+    config.env,
+    daemon
   );
   const capabilitiesRoute = createCapabilitiesRoute(config);
 

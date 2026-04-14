@@ -5,6 +5,7 @@ import type { Task, IsolationMode } from '../../config/schema.js';
 import { TaskRepository } from '../../db/tasks.js';
 import { TaskQueue } from '../../executor/queue.js';
 import { registry } from '../../executor/registry.js';
+import type { TaskDaemon } from '../../executor/daemon.js';
 import { ApiError, ERROR_CODES } from '../errors.js';
 import { getAuthContext } from '../middleware/auth.js';
 import { validateBody, getValidatedBody } from '../middleware/validation.js';
@@ -34,7 +35,8 @@ export function createTasksRoute(
   taskQueue: TaskQueue,
   defaultIsolation: IsolationMode,
   allowedPaths: string[],
-  envConfig: any
+  envConfig: any,
+  daemon?: TaskDaemon
 ) {
   const router = new Hono();
 
@@ -70,7 +72,14 @@ export function createTasksRoute(
     }
 
     // Validate environment variables
-    const env = body.env ? validateEnvVars(body.env, envConfig) : {};
+    let env: Record<string, string> = {};
+    if (body.env) {
+      try {
+        env = validateEnvVars(body.env, envConfig);
+      } catch (err) {
+        throw new ApiError(ERROR_CODES.VALIDATION_ERROR, err instanceof Error ? err.message : 'Invalid env vars', 400);
+      }
+    }
 
     // Create task
     const now = new Date().toISOString();
@@ -180,7 +189,13 @@ export function createTasksRoute(
     if (task.status === 'running') {
       // Mark as cancelled
       taskRepo.updateStatus(id, 'cancelled');
+      taskRepo.updateCompletedAt(id, new Date().toISOString());
       logger.warn({ taskId: id }, 'Task cancelled');
+
+      // Actually cancel the running process via daemon
+      if (daemon && task.status === 'running') {
+        daemon.cancelTask(id);
+      }
     } else {
       // Delete if not running
       taskRepo.delete(id);

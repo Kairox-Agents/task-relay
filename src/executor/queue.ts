@@ -36,14 +36,13 @@ export class TaskQueue extends EventEmitter {
    * Emits 'task-queued' for queued tasks, 'task-ready' for tasks that can start immediately.
    */
   add(task: Task): boolean {
-    if (this.queue.length >= this.config.maxQueueSize) {
-      return false;
-    }
-
     if (this.running.size < this.config.maxConcurrent) {
       // Can start immediately
       this.running.add(task.id);
       this.emit('task-ready', task);
+    } else if (this.queue.length >= this.config.maxQueueSize) {
+      // No capacity — running slots full AND queue full
+      return false;
     } else {
       // Queue it
       this.queue.push(task);

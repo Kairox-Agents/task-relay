@@ -24,11 +24,28 @@ export class ShellExecutor implements Executor {
 
     logger.info({ taskId: task.id, workingDir, timeoutMs }, 'Starting shell execution');
 
-    const proc = spawn('sh', ['-c', task.prompt], {
-      cwd: workingDir,
-      env: { ...process.env, ...env },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    let proc: ReturnType<typeof spawn>;
+    try {
+      proc = spawn('sh', ['-c', task.prompt], {
+        cwd: workingDir,
+        env: { ...process.env, ...env },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch (err) {
+      // Synchronous spawn errors (e.g., ENOTDIR, ENOENT for cwd)
+      const result: ExecutorResult = {
+        exitCode: null,
+        output: '',
+        error: err instanceof Error ? err.message : String(err),
+        outputPath,
+        costUsd: 0,
+      };
+      logger.error({ taskId: task.id, error: result.error }, 'Shell execution failed (spawn error)');
+      return {
+        cancel: () => {},
+        wait: () => Promise.resolve(result),
+      };
+    }
 
     let output = '';
     let stderr = '';
