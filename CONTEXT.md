@@ -10,7 +10,7 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 ## Current State
 
-**Phase: Phase 3 IN PROGRESS 🚧 — 205/205 tests passing across 17 files**
+**Phase: Phase 4 MCP Server ✅ — 205/205 tests passing across 17 files**
 
 ✅ **Phase 1 Complete:**
 - Config system (zod schema, YAML loader, env var interpolation)
@@ -29,14 +29,22 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 - System prompt builder with acceptance_criteria
 - Registered in CLI when config enables claude-code
 
-🚧 **Phase 3 In Progress:**
-- Docker runner utility added (`src/executor/docker.ts`)
-- ClaudeCodeExecutor now routes `isolation: 'docker'` through container execution
-- Docker mode runs Claude CLI inside `task-relay/executor:latest`
+🚧 **Phase 3 Partial:**
+- Docker runner utility added (src/executor/docker.ts)
+- ClaudeCodeExecutor routes isolation: 'docker' through container execution
 - Shell executor explicitly rejected for non-host isolation
-- Graceful failure path verified when `docker` is unavailable
+- Graceful failure path verified when docker is unavailable
+- Still needs: Dockerfile, config wiring, real container validation
 
-🧪 **Test Suite: 205/205 passing (100%) across 17 test files**
+✅ **Phase 4 Complete:**
+- MCP server (src/mcp/server.ts): stdio transport, 5 tools
+- Tools: submit_task, get_task, list_tasks, cancel_task, get_capabilities
+- Forwards all calls to HTTP daemon via localhost
+- Env: TASK_RELAY_URL, TASK_RELAY_API_KEY
+- Registered as `task-relay-mcp` bin entry
+
+📋 **Phase 5: Backup + Polish + Ship**
+📋 **Phase 6: Judge Loop (v1.1)**
 - config: schema (14), loader (7), edge-cases (6)
 - db: tasks (19), edge-cases (16)
 - executor: shell (22), claude-code (7), docker (2), queue (16), queue-drain (11), daemon (14)
