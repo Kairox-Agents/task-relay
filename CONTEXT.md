@@ -10,7 +10,7 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 ## Current State
 
-**Phase: Phase 4 MCP Server ✅ — 205/205 tests passing across 17 files**
+**Phase: Phase 4 COMPLETE ✅ — 214/214 tests passing. Phase 5 (Backup + Ship) next**
 
 ✅ **Phase 1 Complete:**
 - Config system (zod schema, YAML loader, env var interpolation)
