@@ -1,6 +1,7 @@
 import type { Task, TaskStatus } from '../config/schema.js';
 import type { TaskQueue } from './queue.js';
 import type { TaskRepository } from '../db/tasks.js';
+import type { BackupManager } from '../backup/manager.js';
 import { registry } from './registry.js';
 import { getLogger } from '../utils/logger.js';
 
@@ -9,16 +10,19 @@ const logger = getLogger();
 export interface DaemonOptions {
   taskQueue: TaskQueue;
   taskRepo: TaskRepository;
+  backupManager?: BackupManager;
 }
 
 export class TaskDaemon {
   private taskQueue: TaskQueue;
   private taskRepo: TaskRepository;
+  private backupManager?: BackupManager;
   private running: Map<string, { cancel: () => void }> = new Map();
 
   constructor(options: DaemonOptions) {
     this.taskQueue = options.taskQueue;
     this.taskRepo = options.taskRepo;
+    this.backupManager = options.backupManager;
 
     // Listen for tasks that are ready to execute
     this.taskQueue.on('task-ready', (task: Task) => {
@@ -84,6 +88,13 @@ export class TaskDaemon {
         'Task completed'
       );
 
+      // Backup agent traces for claude-code tasks
+      if (task.type === 'claude-code' && this.backupManager) {
+        this.backupManager
+          .backupTrace(task.id, task.working_dir)
+          .catch((err) => logger.warn({ taskId: task.id, error: err }, 'Trace backup failed'));
+      }
+
     } catch (error) {
       logger.error({ taskId: task.id, error }, 'Task execution failed');
 
@@ -128,5 +139,10 @@ export class TaskDaemon {
     }
 
     logger.info('All tasks completed');
+
+    // Stop backup manager
+    if (this.backupManager) {
+      await this.backupManager.stop();
+    }
   }
 }

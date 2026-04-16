@@ -34,6 +34,19 @@ program
       const db = dbManager.getDatabase();
       const taskRepo = new TaskRepository(db);
 
+      // Initialize backup manager
+      let backupManager: any = undefined;
+      if (config.backup.enabled) {
+        const { BackupManager } = await import('./backup/manager.js');
+        const { homedir } = await import('node:os');
+        const { join } = await import('node:path');
+        const stateDir = join(homedir(), '.task-relay');
+        backupManager = new BackupManager(config.backup, stateDir);
+        backupManager.setRepositories(taskRepo, dbManager);
+        await backupManager.init();
+        logger.info('Backup manager initialized');
+      }
+
       // Run retention on startup if configured
       if (config.retention.run_on_startup) {
         logger.info('Running task retention on startup');
@@ -67,7 +80,13 @@ program
       const daemon = new TaskDaemon({
         taskQueue,
         taskRepo,
+        backupManager,
       });
+
+      // Start backup manager
+      if (backupManager) {
+        await backupManager.start();
+      }
 
       // Create HTTP server
       const app = createServer(config, taskRepo, taskQueue, daemon);

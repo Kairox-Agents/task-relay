@@ -138,6 +138,15 @@ export class TaskRepository {
   }
 
   /**
+   * List tasks created since a timestamp.
+   */
+  listSince(isoTimestamp: string, limit = 1000): Task[] {
+    const stmt = this.db.prepare('SELECT * FROM tasks WHERE created_at > ? ORDER BY created_at ASC LIMIT ?');
+    const rows = stmt.all(isoTimestamp, limit) as any[];
+    return rows.map((row) => this.mapRowToTask(row));
+  }
+
+  /**
    * Delete a task.
    */
   delete(id: string): void {
