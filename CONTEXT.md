@@ -12,6 +12,11 @@ A lightweight local worker daemon (TypeScript/Node.js) that runs on a user's mac
 
 **Phase: Phase 4 COMPLETE ✅ — 214/214 tests passing. Phase 5 (Backup + Ship) next**
 
+✅ **Real-World E2E Tests:** 25/25 passed (4.9s)
+- Starts actual daemon subprocess
+- Tests all API endpoints, executors, auth, validation
+- Tests concurrency, cancellation, error handling, queue management
+
 ✅ **Phase 1 Complete:**
 - Config system (zod schema, YAML loader, env var interpolation)
 - Database (SQLite WAL mode, migrations, task CRUD)
